@@ -5,6 +5,7 @@ use std::{fs, path::PathBuf};
 mod instruction;
 mod interpreter;
 mod loader;
+mod registers;
 
 #[allow(non_camel_case_types)]
 type uvm = u64;
