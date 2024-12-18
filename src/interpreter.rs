@@ -168,7 +168,9 @@ fn call(state: &mut State, rfl: bool, val: uvm) {
     jmp(state, rfl, val);
 }
 
-fn ret(state: &mut State, _: bool, _: uvm) {
+fn ret(state: &mut State, rfl: bool, val: uvm) {
+    let value = if rfl { state.regs.get(val) } else { val };
+    state.regs.rr = value;
     pop(state, reg_index!(r0));
     pop(state, reg_index!(bp));
     jmp(state, false, state.regs.r0);
