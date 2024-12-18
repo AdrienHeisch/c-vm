@@ -92,7 +92,7 @@ fn set(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
 fn load(state: &mut State, reg: uvm) {
     let addr = state.regs.get(reg) as usize;
     let mut bytes = state.ram[addr..addr + REG_LEN].to_vec();
-    while bytes.len() < 8 {
+    while bytes.len() < REG_LEN {
         bytes.push(0);
     }
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
@@ -137,7 +137,7 @@ fn push(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
 fn pop(state: &mut State, reg: uvm) {
     state.regs.set_sp(state.regs.sp_value() - REG_LEN as uvm);
     let mut bytes = state.ram[state.regs.sp()..state.regs.sp() + REG_LEN].to_vec();
-    while bytes.len() < 8 {
+    while bytes.len() < REG_LEN {
         bytes.push(0);
     }
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
@@ -149,7 +149,7 @@ fn pop(state: &mut State, reg: uvm) {
 fn drop(state: &mut State) {
     state.regs.set_sp(state.regs.sp_value() - REG_LEN as uvm);
     let mut bytes = state.ram[state.regs.sp()..state.regs.sp() + REG_LEN].to_vec();
-    while bytes.len() < 8 {
+    while bytes.len() < REG_LEN {
         bytes.push(0);
     }
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());

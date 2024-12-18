@@ -1,4 +1,4 @@
-use crate::{instruction::Instruction, REG_LEN};
+use crate::{instruction::Instruction, uvm, REG_LEN};
 use std::slice::Iter;
 
 pub fn load(bytes: &[u8]) -> Vec<Instruction> {
@@ -25,7 +25,7 @@ fn collect_instruction(bytes: &mut Iter<u8>) -> Option<Instruction> {
 
     let val = if let Some(byte) = bytes.next() {
         if rfl {
-            *byte as u64
+            *byte as uvm
         } else {
             // TODO extract function copy from register
             let mut val = Vec::with_capacity(REG_LEN);
@@ -37,10 +37,10 @@ fn collect_instruction(bytes: &mut Iter<u8>) -> Option<Instruction> {
                     return None;
                 };
             }
-            while val.len() < 8 {
+            while val.len() < REG_LEN {
                 val.push(0);
             }
-            u64::from_le_bytes(val.try_into().unwrap())
+            uvm::from_le_bytes(val.try_into().unwrap())
         }
     } else {
         return None;
