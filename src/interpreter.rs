@@ -68,14 +68,17 @@ fn execute(state: &mut State, instruction: Instruction) -> Option<uvm> {
         0x06 => store(state, rfl, reg, val),
         0x0C => add(state, rfl, reg, val),
         0x0D => sub(state, rfl, reg, val),
-        0x1C => push(state, rfl, val),
-        0x1E => pop(state, reg),
-        0x1F => drop(state),
-        0x20 => call(state, rfl, val),
-        0x21 => ret(state, rfl, val),
-        0x22 => jmp(state, rfl, val),
-        0x23 => jeq(state, rfl, reg, val),
-        0x24 => jne(state, rfl, reg, val),
+        0x0E => mul(state, rfl, reg, val),
+        0x0F => div(state, rfl, reg, val),
+        0x10 => modl(state, rfl, reg, val),
+        0x1D => push(state, rfl, val),
+        0x1F => pop(state, reg),
+        0x20 => drop(state),
+        0x21 => call(state, rfl, val),
+        0x22 => ret(state, rfl, val),
+        0x23 => jmp(state, rfl, val),
+        0x24 => jeq(state, rfl, reg, val),
+        0x25 => jne(state, rfl, reg, val),
         _ => panic!("Unexpected opcode 0x{opc:02X}"),
     }
 
@@ -114,18 +117,31 @@ fn store(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
     print!(" => @0x{addr:X} = {value}");
 }
 
-fn add(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
+fn binop(state: &mut State, rfl: bool, reg: uvm, val: uvm, op: fn (uvm, uvm) -> uvm) {
     let val = if rfl { state.regs.get(val) } else { val };
-    let value = state.regs.get(reg) + val;
+    let value = op(state.regs.get(reg), val);
     state.regs.set(reg, value);
     print!(" => R_ = {value}");
 }
 
+fn add(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
+    binop(state, rfl, reg, val, |a, b| a + b);
+}
+
 fn sub(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
-    let val = if rfl { state.regs.get(val) } else { val };
-    let value = state.regs.get(reg) - val;
-    state.regs.set(reg, value);
-    print!(" => R_ = {value}");
+    binop(state, rfl, reg, val, |a, b| a - b);
+}
+
+fn mul(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
+    binop(state, rfl, reg, val, |a, b| a * b);
+}
+
+fn div(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
+    binop(state, rfl, reg, val, |a, b| a / b);
+}
+
+fn modl(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
+    binop(state, rfl, reg, val, |a, b| a % b);
 }
 
 fn push(state: &mut State, rfl: bool, val: uvm) {
