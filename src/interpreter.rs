@@ -40,124 +40,139 @@ pub fn interpret(program: &[Instruction]) {
     }
 }
 
-fn execute(state: &mut State, instruction: Instruction) -> Option<u8> {
+fn execute(state: &mut State, instruction: Instruction) -> Option<uvm> {
     let Instruction { rfl, opc, reg, val } = instruction;
 
     let reg = reg as uvm;
-    let regval = state.regs.get(reg);
 
     print!("{instruction:?}");
 
+    if opc == 0x01 {
+        return Some(halt());
+    }
+
     match opc {
-        // NOP
-        0x00 => println!(),
-        // SET
-        0x04 => {
-            let value = if rfl { state.regs.get(val) } else { val };
-            state.regs.set(reg, value);
-            println!(" => {value}");
-        }
-        // LOAD
-        0x05 => {
-            let addr = regval as usize;
-            let mut bytes = state.ram[addr..addr + REG_LEN].to_vec();
-            while bytes.len() < 8 {
-                bytes.push(0);
-            }
-            let value = u64::from_le_bytes(bytes.try_into().unwrap());
-            state.regs.set(reg, value);
-
-            println!(" => {} at address {}", value, addr);
-            state.print_ram();
-        }
-        // STORE
-        0x06 => {
-            let addr = regval as usize;
-            let value = if rfl { state.regs.get(val) } else { val };
-            let bytes = u64::to_le_bytes(value);
-            state.ram[addr..addr + REG_LEN].copy_from_slice(&bytes[0..REG_LEN]);
-
-            println!(" => {} at address {}", value, addr);
-            state.print_ram();
-        }
-        // ADD
-        0x0C => {
-            let val = if rfl { state.regs.get(val) } else { val };
-            let value = regval + val;
-            state.regs.set(reg, value);
-
-            println!(" => {}", value);
-        }
-        // SUB
-        0x0D => {
-            let val = if rfl { state.regs.get(val) } else { val };
-            let value = regval - val;
-            state.regs.set(reg, value);
-
-            println!(" => {}", value);
-        }
-        // PUSH
-        0x1C => {
-            let value = if rfl { regval } else { val };
-            let bytes = u64::to_le_bytes(value);
-            state.ram[state.regs.sp()..state.regs.sp() + REG_LEN]
-                .copy_from_slice(&bytes[0..REG_LEN]);
-            state.regs.set_sp(state.regs.sp_value() + REG_LEN as uvm);
-
-            println!(" => {regval} at SP {}", state.regs.sp() - REG_LEN);
-            state.print_ram();
-        }
-        // POP
-        0x1E if rfl => {
-            state.regs.set_sp(state.regs.sp_value() - REG_LEN as uvm);
-            let mut bytes = state.ram[state.regs.sp()..state.regs.sp() + REG_LEN].to_vec();
-            while bytes.len() < 8 {
-                bytes.push(0);
-            }
-            let value = u64::from_le_bytes(bytes.try_into().unwrap());
-            state.regs.set(reg, value);
-
-            println!(" => {value} at SP {}", state.regs.sp());
-            state.print_ram();
-        }
-        // DROP
-        0x1F => {
-            state.regs.set_sp(state.regs.sp_value() - REG_LEN as uvm);
-            let mut bytes = state.ram[state.regs.sp()..state.regs.sp() + REG_LEN].to_vec();
-            while bytes.len() < 8 {
-                bytes.push(0);
-            }
-            let value = u64::from_le_bytes(bytes.try_into().unwrap());
-
-            println!(" => {value} at SP {}", state.regs.sp());
-            state.print_ram();
-        }
-        // JMP
-        0x22 => {
-            let addr = if rfl { state.regs.get(val) } else { val };
-            state.regs.set_pc(addr);
-            println!();
-        }
-        // JEQ
-        0x23 => {
-            let addr = if rfl { state.regs.get(val) } else { val };
-            let jmp = regval == 0;
-            if jmp {
-                state.regs.set_pc(addr);
-            }
-            println!(" => {}", jmp);
-        }
-        // JNE
-        0x24 => {
-            let addr = if rfl { state.regs.get(val) } else { val };
-            let jmp = regval != 0;
-            if jmp {
-                state.regs.set_pc(addr);
-            }
-            println!(" => {}", jmp);
-        }
+        0x00 => nop(),
+        0x04 => set(state, rfl, reg, val),
+        0x05 => load(state, reg),
+        0x06 => store(state, rfl, reg, val),
+        0x0C => add(state, rfl, reg, val),
+        0x0D => sub(state, rfl, reg, val),
+        0x1C => push(state, rfl, reg, val),
+        0x1E => pop(state, reg),
+        0x1F => drop(state),
+        0x22 => jmp(state, rfl, val),
+        0x23 => jeq(state, rfl, val, reg),
+        0x24 => jne(state, rfl, val, reg),
         _ => panic!("Unexpected opcode {opc:02X}"),
     }
 
     None
+}
+
+fn nop() {
+    println!();
+}
+
+fn halt() -> uvm {
+    todo!();
+}
+
+fn set(state: &mut State, rfl: bool, val: uvm, reg: uvm) {
+    let value = if rfl { state.regs.get(val) } else { val };
+    state.regs.set(reg, value);
+    println!(" => {value}");
+}
+
+fn load(state: &mut State, reg: uvm) {
+    let addr = state.regs.get(reg) as usize;
+    let mut bytes = state.ram[addr..addr + REG_LEN].to_vec();
+    while bytes.len() < 8 {
+        bytes.push(0);
+    }
+    let value = uvm::from_le_bytes(bytes.try_into().unwrap());
+    state.regs.set(reg, value);
+    println!(" => {} at address {}", value, addr);
+    state.print_ram();
+}
+
+fn store(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
+    let addr = state.regs.get(reg) as usize;
+    let value = if rfl { state.regs.get(val) } else { val };
+    let bytes = uvm::to_le_bytes(value);
+    state.ram[addr..addr + REG_LEN].copy_from_slice(&bytes[0..REG_LEN]);
+    println!(" => {} at address {}", value, addr);
+    state.print_ram();
+}
+
+fn add(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
+    let val = if rfl { state.regs.get(val) } else { val };
+    let value = state.regs.get(reg) + val;
+    state.regs.set(reg, value);
+    println!(" => {}", value);
+}
+
+fn sub(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
+    let val = if rfl { state.regs.get(val) } else { val };
+    let value = state.regs.get(reg) - val;
+    state.regs.set(reg, value);
+    println!(" => {}", value);
+}
+
+fn push(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
+    let value = if rfl { state.regs.get(reg) } else { val };
+    let bytes = uvm::to_le_bytes(value);
+    state.ram[state.regs.sp()..state.regs.sp() + REG_LEN]
+        .copy_from_slice(&bytes[0..REG_LEN]);
+    state.regs.set_sp(state.regs.sp_value() + REG_LEN as uvm);
+    println!(" => {} at SP {}", state.regs.sp() - REG_LEN, state.regs.get(reg));
+    state.print_ram();
+}
+
+fn pop(state: &mut State, reg: uvm) {
+    state.regs.set_sp(state.regs.sp_value() - REG_LEN as uvm);
+    let mut bytes = state.ram[state.regs.sp()..state.regs.sp() + REG_LEN].to_vec();
+    while bytes.len() < 8 {
+        bytes.push(0);
+    }
+    let value = u64::from_le_bytes(bytes.try_into().unwrap());
+    state.regs.set(reg, value);
+
+    println!(" => {value} at SP {}", state.regs.sp());
+    state.print_ram();
+}
+
+fn drop(state: &mut State) {
+    state.regs.set_sp(state.regs.sp_value() - REG_LEN as uvm);
+    let mut bytes = state.ram[state.regs.sp()..state.regs.sp() + REG_LEN].to_vec();
+    while bytes.len() < 8 {
+        bytes.push(0);
+    }
+    let value = uvm::from_le_bytes(bytes.try_into().unwrap());
+    println!(" => {value} at SP {}", state.regs.sp());
+    state.print_ram();
+}
+
+fn jmp(state: &mut State, rfl: bool, val: u64) {
+    let addr = if rfl { state.regs.get(val) } else { val };
+    state.regs.set_pc(addr);
+    println!();
+}
+
+fn jeq(state: &mut State, rfl: bool, val: u64, reg: u64) {
+    let addr = if rfl { state.regs.get(val) } else { val };
+    let jmp = state.regs.get(reg) == 0;
+    if jmp {
+        state.regs.set_pc(addr);
+    }
+    println!(" => {}", jmp);
+}
+
+fn jne(state: &mut State, rfl: bool, val: u64, reg: u64) {
+    let addr = if rfl { state.regs.get(val) } else { val };
+    let jmp = state.regs.get(reg) != 0;
+    if jmp {
+        state.regs.set_pc(addr);
+    }
+    println!(" => {}", jmp);
 }
