@@ -1,4 +1,4 @@
-use crate::{instruction::Instruction, registers::Registers, uvm, REG_LEN};
+use crate::{reg_index, instruction::Instruction, registers::Registers, uvm, REG_LEN};
 
 const RAM_LEN: usize = 32;
 
@@ -32,7 +32,7 @@ impl Default for State {
 pub fn interpret(program: &[Instruction]) {
     let mut state = State::default();
     loop {
-        let pc = state.regs.get_pc();
+        let pc = state.regs.pc;
         if let Some(instruction) = program.get(pc as usize) {
             print!("{:04} : ", pc);
             if let Some(exit_code) = execute(&mut state, *instruction) {
@@ -40,9 +40,8 @@ pub fn interpret(program: &[Instruction]) {
                 break;
             }
             // println!("regs: {:?}", state.regs);
-            let new_pc = state.regs.get_pc();
-            if new_pc == pc {
-                state.regs.set_pc(new_pc + 1);
+            if state.regs.pc == pc {
+                state.regs.pc = pc + 1;
             }
         } else {
             break;
@@ -132,15 +131,15 @@ fn sub(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
 fn push(state: &mut State, rfl: bool, val: uvm) {
     let value = if rfl { state.regs.get(val) } else { val };
     let bytes = uvm::to_le_bytes(value);
-    let sp = state.regs.get_sp();
+    let sp = state.regs.sp;
     state.ram[sp as usize..sp as usize + REG_LEN].copy_from_slice(&bytes[0..REG_LEN]);
-    state.regs.set_sp(sp + REG_LEN as uvm);
+    state.regs.sp = sp + REG_LEN as uvm;
     print!(" => @0x{sp:X} = {value}");
 }
 
 fn pop(state: &mut State, reg: uvm) {
-    let sp = state.regs.get_sp() - REG_LEN as uvm;
-    state.regs.set_sp(sp);
+    let sp = state.regs.sp - REG_LEN as uvm;
+    state.regs.sp = sp;
     let mut bytes = state.ram[sp as usize..sp as usize + REG_LEN].to_vec();
     while bytes.len() < REG_LEN {
         bytes.push(0);
@@ -152,8 +151,8 @@ fn pop(state: &mut State, reg: uvm) {
 }
 
 fn drop(state: &mut State) {
-    let sp = state.regs.get_sp() - REG_LEN as uvm;
-    state.regs.set_sp(sp);
+    let sp = state.regs.sp - REG_LEN as uvm;
+    state.regs.sp = sp;
     let mut bytes = state.ram[sp as usize..sp as usize + REG_LEN].to_vec();
     while bytes.len() < REG_LEN {
         bytes.push(0);
@@ -164,31 +163,28 @@ fn drop(state: &mut State) {
 }
 
 fn call(state: &mut State, rfl: bool, val: uvm) {
-    push(state, rfl, state.regs.get_bp());
-    push(state, rfl, state.regs.get_pc() + 1);
+    push(state, rfl, state.regs.bp);
+    push(state, rfl, state.regs.pc + 1);
     jmp(state, rfl, val);
 }
 
 fn ret(state: &mut State, _: bool, _: uvm) {
-    // POP R0,
-    // POP BP,
-    // JMP (Reg R0)
-    pop(state, state.regs.r0() as uvm);
-    pop(state, state.regs.bp() as uvm);
-    jmp(state, true, state.regs.r0() as uvm);
-    print!(" => JMP {}", state.regs.get(state.regs.r0() as uvm));
+    pop(state, reg_index!(r0));
+    pop(state, reg_index!(bp));
+    jmp(state, false, state.regs.r0);
+    print!(" => JMP {}", state.regs.r0);
 }
 
 fn jmp(state: &mut State, rfl: bool, val: uvm) {
     let addr = if rfl { state.regs.get(val) } else { val };
-    state.regs.set_pc(addr);
+    state.regs.pc = addr;
 }
 
 fn jcond(state: &mut State, rfl: bool, reg: uvm, val: uvm, op: fn(&uvm, &uvm) -> bool) {
     let cond = op(&state.regs.get(reg), &0);
     if cond {
         let addr = if rfl { state.regs.get(val) } else { val };
-        state.regs.set_pc(addr);
+        state.regs.pc = addr;
     }
     print!(" => {cond}");
 }

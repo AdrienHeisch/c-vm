@@ -1,60 +1,62 @@
 use crate::uvm;
 
-/// PC, SP, BP, RR, SR, FR, R0, R1, R2, R3...
 #[allow(unused)]
 #[derive(Default, Debug)]
-pub struct Registers ([uvm; 16]);
+pub struct Registers {
+    pub pc: uvm,
+    pub sp: uvm,
+    pub bp: uvm,
+    pub rr: uvm,
+    pub sr: uvm,
+    pub fr: uvm,
+    pub r0: uvm,
+    pub r1: uvm,
+    pub r2: uvm,
+    pub r3: uvm,
+    pub r4: uvm,
+    pub r5: uvm,
+    pub r6: uvm,
+    pub r7: uvm,
+}
 
 impl Registers {
-    pub fn pc(&self) -> usize {
-        0
-    }
-
-    pub fn get_pc(&self) -> uvm {
-        self.0[self.pc()]
-    }
-
-    pub fn set_pc(&mut self, value: uvm) {
-        self.0[self.pc()] = value
-    }
-
-    pub fn sp(&self) -> usize {
-        1
-    }
-
-    pub fn get_sp(&self) -> uvm {
-        self.0[self.sp()]
-    }
-
-    pub fn set_sp(&mut self, value: uvm) {
-        self.0[self.sp()] = value
-    }
-
-    pub fn bp(&self) -> usize {
-        2
-    }
-
-    pub fn get_bp(&self) -> uvm {
-        self.0[self.bp()]
-    }
-
-    pub fn r0(&self) -> usize {
-        6
-    }
-
     pub fn get(&self, reg_idx: uvm) -> uvm {
-        if let Some(reg) = self.0.get(reg_idx as usize) {
-            *reg
-        } else {
-            panic!("Invalid register index {reg_idx}")
+        match reg_idx {
+            0 => self.pc,
+            1 => self.sp,
+            2 => self.bp,
+            3 => self.rr,
+            4 => self.sr,
+            5 => self.fr,
+            6 => self.r0,
+            7 => self.r1,
+            8 => self.r2,
+            9 => self.r3,
+            10 => self.r4,
+            11 => self.r5,
+            12 => self.r6,
+            13 => self.r7,
+            _ => panic!("Invalid register index {reg_idx}"),
         }
     }
 
     pub fn set(&mut self, reg_idx: uvm, value: uvm) {
-        if let Some(reg) = self.0.get_mut(reg_idx as usize) {
-            *reg = value
-        } else {
-            panic!("Invalid register index {reg_idx}")
+        match reg_idx {
+            0 => self.pc = value,
+            1 => self.sp = value,
+            2 => self.bp = value,
+            3 => self.rr = value,
+            4 => self.sr = value,
+            5 => self.fr = value,
+            6 => self.r0 = value,
+            7 => self.r1 = value,
+            8 => self.r2 = value,
+            9 => self.r3 = value,
+            10 => self.r4 = value,
+            11 => self.r5 = value,
+            12 => self.r6 = value,
+            13 => self.r7 = value,
+            _ => panic!("Invalid register index {reg_idx}"),
         }
     }
 
@@ -74,7 +76,54 @@ impl Registers {
             11 => "R5",
             12 => "R6",
             13 => "R7",
-            _ => panic!("Invalid register index {reg_idx}")
-        }.to_string()
+            _ => panic!("Invalid register index {reg_idx}"),
+        }
+        .to_string()
     }
+}
+
+#[macro_export]
+macro_rules! reg_index {
+    (pc) => {
+        0
+    };
+    (sp) => {
+        1
+    };
+    (bp) => {
+        2
+    };
+    (rr) => {
+        3
+    };
+    (sr) => {
+        4
+    };
+    (fr) => {
+        5
+    };
+    (r0) => {
+        6
+    };
+    (r1) => {
+        7
+    };
+    (r2) => {
+        8
+    };
+    (r3) => {
+        9
+    };
+    (r4) => {
+        10
+    };
+    (r5) => {
+        11
+    };
+    (r6) => {
+        12
+    };
+    (r7) => {
+        13
+    };
 }
