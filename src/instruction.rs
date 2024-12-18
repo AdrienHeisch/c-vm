@@ -29,13 +29,15 @@ impl Debug for Instruction {
             0x06 => write!(f, "STORE  {} {val}", reg),
             0x0C => write!(f, "ADD    {} {val}", reg),
             0x0D => write!(f, "SUB    {} {val}", reg),
-            0x1C => write!(f, "PUSH   {}     ", reg),
+            0x1C => write!(f, "PUSH      {val}"),
             0x1E => write!(f, "POP    {}     ", reg),
             0x1F => write!(f, "DROP          "),
+            0x20 => write!(f, "CALL      {val}"),
+            0x21 => write!(f, "RET       {val}"),
             0x22 => write!(f, "JMP       {val}"),
             0x23 => write!(f, "JEQ    {} {val}", reg),
             0x24 => write!(f, "JNE    {} {val}", reg),
-            _ => panic!("Unexpected opcode {opc:02X}"),
+            _ => panic!("Unexpected opcode 0x{opc:02X}"),
         }?;
         Ok(())
     }

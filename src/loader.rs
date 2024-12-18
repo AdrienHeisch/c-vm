@@ -4,9 +4,13 @@ use std::slice::Iter;
 pub fn load(bytes: &[u8]) -> Vec<Instruction> {
     let mut bytes = bytes.iter();
     let mut program = Vec::new();
+    let mut pc = 0;
     while let Some(instruction) = collect_instruction(&mut bytes) {
         program.push(instruction);
+        println!("{pc:04X}: {instruction:?}");
+        pc += 1;
     }
+    println!();
     program
 }
 

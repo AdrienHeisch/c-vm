@@ -30,6 +30,18 @@ impl Registers {
         self.0[self.sp()] = value
     }
 
+    pub fn bp(&self) -> usize {
+        2
+    }
+
+    pub fn get_bp(&self) -> uvm {
+        self.0[self.bp()]
+    }
+
+    pub fn r0(&self) -> usize {
+        6
+    }
+
     pub fn get(&self, reg_idx: uvm) -> uvm {
         if let Some(reg) = self.0.get(reg_idx as usize) {
             *reg
@@ -54,15 +66,14 @@ impl Registers {
             3 => "RR",
             4 => "SR",
             5 => "FR",
-            6 => "LR",
-            7 => "R0",
-            8 => "R1",
-            9 => "R2",
-            10 => "R3",
-            11 => "R4",
-            12 => "R5",
-            13 => "R6",
-            14 => "R7",
+            6 => "R0",
+            7 => "R1",
+            8 => "R2",
+            9 => "R3",
+            10 => "R4",
+            11 => "R5",
+            12 => "R6",
+            13 => "R7",
             _ => panic!("Invalid register index {reg_idx}")
         }.to_string()
     }
