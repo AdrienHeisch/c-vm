@@ -64,7 +64,7 @@ fn execute(state: &mut State, instruction: Instruction) -> Option<uvm> {
     match opc {
         0x00 => nop(),
         0x04 => set(state, rfl, reg, val),
-        0x05 => load(state, reg),
+        0x05 => load(state, rfl, reg, val),
         0x06 => store(state, rfl, reg, val),
         0x0C => add(state, rfl, reg, val),
         0x0D => sub(state, rfl, reg, val),
@@ -95,15 +95,15 @@ fn set(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
     print!(" => R_ = {value}");
 }
 
-fn load(state: &mut State, reg: uvm) {
-    let addr = state.regs.get(reg) as usize;
+fn load(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
+    let addr = if rfl { state.regs.get(val) } else { val } as usize;
     let mut bytes = state.ram[addr..addr + REG_LEN].to_vec();
     while bytes.len() < REG_LEN {
         bytes.push(0);
     }
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
     state.regs.set(reg, value);
-    print!(" => @0x{addr:X} = {value}");
+    print!(" => @0x{addr:X} -> {value}");
 }
 
 fn store(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
