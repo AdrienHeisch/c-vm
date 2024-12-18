@@ -7,20 +7,25 @@ struct State {
     ram: [u8; RAM_LEN],
 }
 
+#[allow(dead_code)]
 impl State {
+    fn print_ram(&self) {
+        let hex_string: String = self
+            .ram
+            .iter()
+            .map(|byte| format!("{:02x}", byte))
+            .collect::<Vec<String>>()
+            .join(" ");
+        println!("RAM: {}", hex_string)
+    }
+}
+
+impl Default for State {
     fn default() -> Self {
         Self {
             regs: Default::default(),
             ram: [0; RAM_LEN],
         }
-    }
-
-    fn print_ram(&self) {
-        let hex_string: String = self.ram.iter()
-            .map(|byte| format!("{:02x}", byte))
-            .collect::<Vec<String>>()
-            .join(" ");
-        println!("RAM: {}", hex_string)
     }
 }
 
@@ -120,10 +125,13 @@ fn sub(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
 fn push(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
     let value = if rfl { state.regs.get(reg) } else { val };
     let bytes = uvm::to_le_bytes(value);
-    state.ram[state.regs.sp()..state.regs.sp() + REG_LEN]
-        .copy_from_slice(&bytes[0..REG_LEN]);
+    state.ram[state.regs.sp()..state.regs.sp() + REG_LEN].copy_from_slice(&bytes[0..REG_LEN]);
     state.regs.set_sp(state.regs.sp_value() + REG_LEN as uvm);
-    println!(" => {} @ {}", state.regs.sp() - REG_LEN, state.regs.get(reg));
+    println!(
+        " => {} @ {}",
+        state.regs.sp() - REG_LEN,
+        state.regs.get(reg)
+    );
 }
 
 fn pop(state: &mut State, reg: uvm) {
