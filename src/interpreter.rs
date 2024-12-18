@@ -57,7 +57,8 @@ fn execute(state: &mut State, instruction: Instruction) -> Option<uvm> {
     print!("{instruction:?}");
 
     if opc == 0x01 {
-        return Some(halt());
+        println!();
+        return Some(halt(state, rfl, val));
     }
 
     match opc {
@@ -79,14 +80,13 @@ fn execute(state: &mut State, instruction: Instruction) -> Option<uvm> {
     }
 
     println!();
-
     None
 }
 
 fn nop() {}
 
-fn halt() -> uvm {
-    todo!();
+fn halt(state: &mut State, rfl: bool, val: uvm) -> uvm {
+    if rfl { state.regs.get(val) } else { val }
 }
 
 fn set(state: &mut State, rfl: bool, reg: uvm, val: uvm) {

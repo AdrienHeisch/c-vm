@@ -24,6 +24,7 @@ impl Debug for Instruction {
 
         match opc {
             0x00 => write!(f, "NOP           "),
+            0x01 => write!(f, "HALT      {val}"),
             0x04 => write!(f, "SET    {} {val}", reg),
             0x05 => write!(f, "LOAD   {} {val}", reg),
             0x06 => write!(f, "STORE  {} {val}", reg),
