@@ -7,27 +7,27 @@ pub struct Registers ([uvm; 16]);
 
 impl Registers {
     pub fn pc(&self) -> usize {
-        self.0[0] as usize
+        0
     }
 
-    pub fn pc_value(&self) -> uvm {
-        self.0[0]
+    pub fn get_pc(&self) -> uvm {
+        self.0[self.pc()]
     }
 
     pub fn set_pc(&mut self, value: uvm) {
-        self.0[0] = value
+        self.0[self.pc()] = value
     }
 
     pub fn sp(&self) -> usize {
-        self.0[1] as usize
+        1
     }
 
-    pub fn sp_value(&self) -> uvm {
-        self.0[1]
+    pub fn get_sp(&self) -> uvm {
+        self.0[self.sp()]
     }
 
     pub fn set_sp(&mut self, value: uvm) {
-        self.0[1] = value
+        self.0[self.sp()] = value
     }
 
     pub fn get(&self, reg_idx: uvm) -> uvm {

@@ -31,16 +31,21 @@ impl Default for State {
 
 pub fn interpret(program: &[Instruction]) {
     let mut state = State::default();
-    while let Some(instruction) = program.get(state.regs.pc()) {
-        let pc_before = state.regs.pc();
-        print!("{:04} : ", state.regs.pc());
-        if let Some(exit_code) = execute(&mut state, *instruction) {
-            println!("Program exited with code : {exit_code}");
+    loop {
+        let pc = state.regs.get_pc();
+        if let Some(instruction) = program.get(pc as usize) {
+            print!("{:04} : ", pc);
+            if let Some(exit_code) = execute(&mut state, *instruction) {
+                println!("Program exited with code : {exit_code}");
+                break;
+            }
+            // println!("regs: {:?}", state.regs);
+            let new_pc = state.regs.get_pc();
+            if new_pc == pc {
+                state.regs.set_pc(new_pc + 1);
+            }
+        } else {
             break;
-        }
-        // println!("regs: {:?}", state.regs);
-        if state.regs.pc() == pc_before {
-            state.regs.set_pc(state.regs.pc_value() + 1);
         }
     }
 }
@@ -125,35 +130,34 @@ fn sub(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
 fn push(state: &mut State, rfl: bool, reg: uvm, val: uvm) {
     let value = if rfl { state.regs.get(reg) } else { val };
     let bytes = uvm::to_le_bytes(value);
-    state.ram[state.regs.sp()..state.regs.sp() + REG_LEN].copy_from_slice(&bytes[0..REG_LEN]);
-    state.regs.set_sp(state.regs.sp_value() + REG_LEN as uvm);
-    println!(
-        " => {} @ {}",
-        state.regs.sp() - REG_LEN,
-        state.regs.get(reg)
-    );
+    let sp = state.regs.get_sp();
+    state.ram[sp as usize..sp as usize + REG_LEN].copy_from_slice(&bytes[0..REG_LEN]);
+    state.regs.set_sp(sp + REG_LEN as uvm);
+    println!(" => {} @ {}", sp, state.regs.get(reg));
 }
 
 fn pop(state: &mut State, reg: uvm) {
-    state.regs.set_sp(state.regs.sp_value() - REG_LEN as uvm);
-    let mut bytes = state.ram[state.regs.sp()..state.regs.sp() + REG_LEN].to_vec();
+    state.regs.set_sp(state.regs.get_sp() - REG_LEN as uvm);
+    let sp = state.regs.get_sp();
+    let mut bytes = state.ram[sp as usize..sp as usize + REG_LEN].to_vec();
     while bytes.len() < REG_LEN {
         bytes.push(0);
     }
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
     state.regs.set(reg, value);
 
-    println!(" => {value} @ {}", state.regs.sp());
+    println!(" => {value} @ {}", sp);
 }
 
 fn drop(state: &mut State) {
-    state.regs.set_sp(state.regs.sp_value() - REG_LEN as uvm);
-    let mut bytes = state.ram[state.regs.sp()..state.regs.sp() + REG_LEN].to_vec();
+    state.regs.set_sp(state.regs.get_sp() - REG_LEN as uvm);
+    let sp = state.regs.get_sp();
+    let mut bytes = state.ram[sp as usize..sp as usize + REG_LEN].to_vec();
     while bytes.len() < REG_LEN {
         bytes.push(0);
     }
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
-    println!(" => {value} @ {}", state.regs.sp());
+    println!(" => {value} @ {}", sp);
 }
 
 fn jmp(state: &mut State, rfl: bool, val: uvm) {
