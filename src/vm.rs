@@ -1,12 +1,12 @@
 use crate::{instruction::Instruction, registers::Registers, uvm, REG_LEN};
 
-const RAM_LEN: usize = 128;
+pub const RAM_LEN: usize = 128;
 
 pub struct VM {
     regs: Registers,
     ram: [u8; RAM_LEN],
-    stdout: Vec<u8>,
-    stderr: Vec<u8>,
+    stdout: String,
+    stderr: String,
 }
 
 #[allow(dead_code)]
@@ -15,34 +15,35 @@ impl VM {
         Self {
             regs: Default::default(),
             ram: [0; RAM_LEN],
-            stdout: Vec::new(),
-            stderr: Vec::new(),
+            stdout: String::new(),
+            stderr: String::new(),
         }
     }
 
     fn push_stdout(&mut self, string: String) {
-        for byte in string.as_bytes() {
-            self.stdout.push(*byte);
+        for char in string.chars() {
+            self.stdout.push(char);
         }
     }
 
     pub fn stdout(&mut self) -> String {
-        let mut bytes = Vec::with_capacity(self.stdout.len());
-        std::mem::swap(&mut self.stdout, &mut bytes);
+        let mut str = String::with_capacity(self.stdout.len());
+        std::mem::swap(&mut self.stdout, &mut str);
         self.stdout.clear();
-        String::from_utf8(bytes).unwrap()
+        str
     }
 
     fn push_stderr(&mut self, string: String) {
-        for byte in string.as_bytes() {
-            self.stderr.push(*byte);
+        for char in string.chars() {
+            self.stderr.push(char);
         }
     }
 
     pub fn stderr(&mut self) -> String {
-        let mut bytes = Vec::with_capacity(self.stderr.len());
-        std::mem::swap(&mut self.stderr, &mut bytes);
+        let mut str = String::with_capacity(self.stderr.len());
+        std::mem::swap(&mut self.stderr, &mut str);
         self.stderr.clear();
+        str
         String::from_utf8(bytes).unwrap()
     }
 
@@ -76,7 +77,7 @@ pub fn execute(vm: &mut VM, instruction: Instruction) -> Option<uvm> {
     let pc = vm.regs.pc;
     let reg = reg as uvm;
 
-    vm.push_stderr(format!("{instruction:?}"));
+    vm.push_stdout(format!("{instruction:?}"));
 
     if opc == 0x01 {
         vm.push_stdout("\n".to_string());
