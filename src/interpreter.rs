@@ -1,6 +1,6 @@
-use crate::{reg_index, instruction::Instruction, registers::Registers, uvm, REG_LEN};
+use crate::{instruction::Instruction, registers::Registers, uvm, REG_LEN};
 
-const RAM_LEN: usize = 32;
+const RAM_LEN: usize = 128;
 
 struct State {
     regs: Registers,
@@ -179,18 +179,18 @@ fn drop(state: &mut State) {
 }
 
 fn call(state: &mut State, rfl: bool, val: uvm) {
-    push(state, rfl, state.regs.bp);
-    push(state, rfl, state.regs.pc + 1);
+    state.regs.lr = state.regs.pc + 1;
     jmp(state, rfl, val);
 }
 
 fn ret(state: &mut State, rfl: bool, val: uvm) {
     let value = if rfl { state.regs.get(val) } else { val };
     state.regs.rr = value;
-    pop(state, reg_index!(r0));
-    pop(state, reg_index!(bp));
-    jmp(state, false, state.regs.r0);
-    print!(" => JMP {}", state.regs.r0);
+    if state.regs.lr == 2 {
+        panic!("LR: {}", state.regs.lr);
+    }
+    jmp(state, false, state.regs.lr);
+    print!(" => JMP {}", state.regs.lr);
 }
 
 fn jmp(state: &mut State, rfl: bool, val: uvm) {
