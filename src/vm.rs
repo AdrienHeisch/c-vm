@@ -5,7 +5,7 @@ pub const RAM_LEN: usize = 128;
 pub fn run(program: &[Instruction]) {
     let mut vm = VM::new();
     while let Some(instruction) = program.get(vm.regs.pc as usize) {
-        vm.push_stdout(format!("{:04X} : ", vm.regs.pc));
+        vm.push_stderr(format!("{:04X} : ", vm.regs.pc));
 
         if let Some(exit_code) = vm.execute(*instruction) {
             println!("Program exited with code : {exit_code}");
@@ -76,10 +76,10 @@ impl VM {
         let pc = self.regs.pc;
         let reg = reg as uvm;
     
-        self.push_stdout(format!("{instruction:?}"));
+        self.push_stderr(format!("{instruction:?}"));
     
         if opc == 0x01 {
-            self.push_stdout("\n".to_string());
+            self.push_stderr("\n".to_string());
             return Some(halt(self, rfl, val));
         }
     
@@ -108,7 +108,7 @@ impl VM {
             self.regs.pc = pc + 1;
         }
     
-        self.push_stdout("\n".to_string());
+        self.push_stderr("\n".to_string());
         None
     }
 }
@@ -126,7 +126,7 @@ fn halt(vm: &mut VM, rfl: bool, val: uvm) -> uvm {
 fn set(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
     let value = if rfl { vm.regs.get(val) } else { val };
     vm.regs.set(reg, value);
-    vm.push_stdout(format!(" => R_ = {value}"));
+    vm.push_stderr(format!(" => R_ = {value}"));
 }
 
 fn load(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
@@ -137,7 +137,7 @@ fn load(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
     }
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
     vm.regs.set(reg, value);
-    vm.push_stdout(format!(" => @0x{addr:X} -> {value}"));
+    vm.push_stderr(format!(" => @0x{addr:X} -> {value}"));
 }
 
 fn store(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
@@ -145,14 +145,14 @@ fn store(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
     let value = if rfl { vm.regs.get(val) } else { val };
     let bytes = uvm::to_le_bytes(value);
     vm.ram[addr..addr + REG_LEN].copy_from_slice(&bytes[0..REG_LEN]);
-    vm.push_stdout(format!(" => @0x{addr:X} = {value}"));
+    vm.push_stderr(format!(" => @0x{addr:X} = {value}"));
 }
 
 fn binop(vm: &mut VM, rfl: bool, reg: uvm, val: uvm, op: fn(uvm, uvm) -> uvm) {
     let val = if rfl { vm.regs.get(val) } else { val };
     let value = op(vm.regs.get(reg), val);
     vm.regs.set(reg, value);
-    vm.push_stdout(format!(" => R_ = {value}"));
+    vm.push_stderr(format!(" => R_ = {value}"));
 }
 
 fn add(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
@@ -181,7 +181,7 @@ fn push(vm: &mut VM, rfl: bool, val: uvm) {
     let sp = vm.regs.sp;
     vm.ram[sp as usize..sp as usize + REG_LEN].copy_from_slice(&bytes[0..REG_LEN]);
     vm.regs.sp = sp + REG_LEN as uvm;
-    vm.push_stdout(format!(" => @0x{sp:X} = {value}"));
+    vm.push_stderr(format!(" => @0x{sp:X} = {value}"));
 }
 
 fn pop(vm: &mut VM, reg: uvm) {
@@ -194,7 +194,7 @@ fn pop(vm: &mut VM, reg: uvm) {
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
     vm.regs.set(reg, value);
 
-    vm.push_stdout(format!(" => @0x{sp:X} -> {value}"));
+    vm.push_stderr(format!(" => @0x{sp:X} -> {value}"));
 }
 
 fn drop(vm: &mut VM) {
@@ -206,7 +206,7 @@ fn drop(vm: &mut VM) {
     }
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
 
-    vm.push_stdout(format!(" => @0x{sp:X} -> {value}"));
+    vm.push_stderr(format!(" => @0x{sp:X} -> {value}"));
 }
 
 fn call(vm: &mut VM, rfl: bool, val: uvm) {
@@ -221,7 +221,7 @@ fn ret(vm: &mut VM, rfl: bool, val: uvm) {
         panic!("LR: {}", vm.regs.lr);
     }
     jmp(vm, false, vm.regs.lr);
-    vm.push_stdout(format!(" => JMP {}", vm.regs.lr));
+    vm.push_stderr(format!(" => JMP {}", vm.regs.lr));
 }
 
 fn jmp(vm: &mut VM, rfl: bool, val: uvm) {
@@ -235,7 +235,7 @@ fn jcond(vm: &mut VM, rfl: bool, reg: uvm, val: uvm, op: fn(&uvm, &uvm) -> bool)
         let addr = if rfl { vm.regs.get(val) } else { val };
         vm.regs.pc = addr;
     }
-    vm.push_stdout(format!(" => {cond}"));
+    vm.push_stderr(format!(" => {cond}"));
 }
 
 fn jeq(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
