@@ -3,10 +3,10 @@ use loader::load;
 use std::{fs, path::PathBuf};
 
 mod instruction;
-mod interpreter;
 mod loader;
 mod registers;
 mod tui;
+mod vm;
 
 #[allow(non_camel_case_types)]
 type uvm = u64;
@@ -18,7 +18,7 @@ struct Args {
     /// Sets a custom target file
     #[arg(short, long, value_name = "FILE")]
     file: PathBuf,
-    
+
     /// Sets a custom config file
     #[arg(short, long)]
     tui: bool,
@@ -31,7 +31,7 @@ fn main() -> Result<(), std::io::Error> {
     if args.tui {
         tui::start()?;
     } else {
-        interpreter::interpret(&program);
+        vm::run(&program);
     }
     Ok(())
 }

@@ -29,7 +29,7 @@ impl Default for VM {
     }
 }
 
-pub fn interpret(program: &[Instruction]) {
+pub fn run(program: &[Instruction]) {
     let mut vm = VM::default();
     loop {
         let pc = vm.regs.pc;
@@ -88,7 +88,11 @@ fn execute(vm: &mut VM, instruction: Instruction) -> Option<uvm> {
 fn nop() {}
 
 fn halt(vm: &mut VM, rfl: bool, val: uvm) -> uvm {
-    if rfl { vm.regs.get(val) } else { val }
+    if rfl {
+        vm.regs.get(val)
+    } else {
+        val
+    }
 }
 
 fn set(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
@@ -116,7 +120,7 @@ fn store(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
     print!(" => @0x{addr:X} = {value}");
 }
 
-fn binop(vm: &mut VM, rfl: bool, reg: uvm, val: uvm, op: fn (uvm, uvm) -> uvm) {
+fn binop(vm: &mut VM, rfl: bool, reg: uvm, val: uvm, op: fn(uvm, uvm) -> uvm) {
     let val = if rfl { vm.regs.get(val) } else { val };
     let value = op(vm.regs.get(reg), val);
     vm.regs.set(reg, value);
@@ -173,7 +177,7 @@ fn drop(vm: &mut VM) {
         bytes.push(0);
     }
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
-    
+
     print!(" => @0x{sp:X} -> {value}");
 }
 
