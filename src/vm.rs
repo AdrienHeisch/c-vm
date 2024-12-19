@@ -5,36 +5,62 @@ const RAM_LEN: usize = 128;
 struct VM {
     regs: Registers,
     ram: [u8; RAM_LEN],
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
 }
 
 #[allow(dead_code)]
 impl VM {
-    fn print_ram(&self) {
-        let hex_string: String = self
-            .ram
-            .iter()
-            .map(|byte| format!("{:02x}", byte))
-            .collect::<Vec<String>>()
-            .join(" ");
-        println!("RAM: {}", hex_string)
-    }
-}
-
-impl Default for VM {
-    fn default() -> Self {
+    fn new() -> Self {
         Self {
             regs: Default::default(),
             ram: [0; RAM_LEN],
+            stdout: Vec::new(),
+            stderr: Vec::new(),
         }
+    }
+
+    fn stdout(&mut self, string: String) {
+        for byte in string.as_bytes() {
+            self.stdout.push(*byte);
+        }
+    }
+
+    fn take_stdout(&mut self) -> String {
+        let mut bytes = Vec::with_capacity(self.stdout.len());
+        std::mem::swap(&mut self.stdout, &mut bytes);
+        self.stdout.clear();
+        String::from_utf8(bytes).unwrap()
+    }
+
+    fn stderr(&mut self, string: String) {
+        for byte in string.as_bytes() {
+            self.stderr.push(*byte);
+        }
+    }
+
+    fn take_stderr(&mut self) -> String {
+        let mut bytes = Vec::with_capacity(self.stderr.len());
+        std::mem::swap(&mut self.stderr, &mut bytes);
+        self.stderr.clear();
+        String::from_utf8(bytes).unwrap()
+    }
+
+    fn show_ram(&self) -> String {
+        self.ram
+            .iter()
+            .map(|byte| format!("{:02x}", byte))
+            .collect::<Vec<String>>()
+            .join(" ")
     }
 }
 
 pub fn run(program: &[Instruction]) {
-    let mut vm = VM::default();
+    let mut vm = VM::new();
     loop {
         let pc = vm.regs.pc;
         if let Some(instruction) = program.get(pc as usize) {
-            print!("{:04} : ", pc);
+            vm.stdout(format!("{:04} : ", pc));
             if let Some(exit_code) = execute(&mut vm, *instruction) {
                 println!("Program exited with code : {exit_code}");
                 break;
@@ -42,6 +68,9 @@ pub fn run(program: &[Instruction]) {
             if vm.regs.pc == pc {
                 vm.regs.pc = pc + 1;
             }
+
+            eprint!("{}", vm.take_stderr());
+            print!("{}", vm.take_stdout());
         } else {
             break;
         }
@@ -53,10 +82,10 @@ fn execute(vm: &mut VM, instruction: Instruction) -> Option<uvm> {
 
     let reg = reg as uvm;
 
-    print!("{instruction:?}");
+    vm.stderr(format!("{instruction:?}"));
 
     if opc == 0x01 {
-        println!();
+        vm.stdout("\n".to_string());
         return Some(halt(vm, rfl, val));
     }
 
@@ -81,7 +110,7 @@ fn execute(vm: &mut VM, instruction: Instruction) -> Option<uvm> {
         _ => panic!("Unexpected opcode 0x{opc:02X}"),
     }
 
-    println!();
+    vm.stdout("\n".to_string());
     None
 }
 
@@ -98,7 +127,7 @@ fn halt(vm: &mut VM, rfl: bool, val: uvm) -> uvm {
 fn set(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
     let value = if rfl { vm.regs.get(val) } else { val };
     vm.regs.set(reg, value);
-    print!(" => R_ = {value}");
+    vm.stdout(format!(" => R_ = {value}"));
 }
 
 fn load(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
@@ -109,7 +138,7 @@ fn load(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
     }
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
     vm.regs.set(reg, value);
-    print!(" => @0x{addr:X} -> {value}");
+    vm.stdout(format!(" => @0x{addr:X} -> {value}"));
 }
 
 fn store(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
@@ -117,14 +146,14 @@ fn store(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
     let value = if rfl { vm.regs.get(val) } else { val };
     let bytes = uvm::to_le_bytes(value);
     vm.ram[addr..addr + REG_LEN].copy_from_slice(&bytes[0..REG_LEN]);
-    print!(" => @0x{addr:X} = {value}");
+    vm.stdout(format!(" => @0x{addr:X} = {value}"));
 }
 
 fn binop(vm: &mut VM, rfl: bool, reg: uvm, val: uvm, op: fn(uvm, uvm) -> uvm) {
     let val = if rfl { vm.regs.get(val) } else { val };
     let value = op(vm.regs.get(reg), val);
     vm.regs.set(reg, value);
-    print!(" => R_ = {value}");
+    vm.stdout(format!(" => R_ = {value}"));
 }
 
 fn add(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
@@ -153,7 +182,7 @@ fn push(vm: &mut VM, rfl: bool, val: uvm) {
     let sp = vm.regs.sp;
     vm.ram[sp as usize..sp as usize + REG_LEN].copy_from_slice(&bytes[0..REG_LEN]);
     vm.regs.sp = sp + REG_LEN as uvm;
-    print!(" => @0x{sp:X} = {value}");
+    vm.stdout(format!(" => @0x{sp:X} = {value}"));
 }
 
 fn pop(vm: &mut VM, reg: uvm) {
@@ -166,7 +195,7 @@ fn pop(vm: &mut VM, reg: uvm) {
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
     vm.regs.set(reg, value);
 
-    print!(" => @0x{sp:X} -> {value}");
+    vm.stdout(format!(" => @0x{sp:X} -> {value}"));
 }
 
 fn drop(vm: &mut VM) {
@@ -178,7 +207,7 @@ fn drop(vm: &mut VM) {
     }
     let value = uvm::from_le_bytes(bytes.try_into().unwrap());
 
-    print!(" => @0x{sp:X} -> {value}");
+    vm.stdout(format!(" => @0x{sp:X} -> {value}"));
 }
 
 fn call(vm: &mut VM, rfl: bool, val: uvm) {
@@ -193,7 +222,7 @@ fn ret(vm: &mut VM, rfl: bool, val: uvm) {
         panic!("LR: {}", vm.regs.lr);
     }
     jmp(vm, false, vm.regs.lr);
-    print!(" => JMP {}", vm.regs.lr);
+    vm.stdout(format!(" => JMP {}", vm.regs.lr));
 }
 
 fn jmp(vm: &mut VM, rfl: bool, val: uvm) {
@@ -207,7 +236,7 @@ fn jcond(vm: &mut VM, rfl: bool, reg: uvm, val: uvm, op: fn(&uvm, &uvm) -> bool)
         let addr = if rfl { vm.regs.get(val) } else { val };
         vm.regs.pc = addr;
     }
-    print!(" => {cond}");
+    vm.stdout(format!(" => {cond}"));
 }
 
 fn jeq(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
