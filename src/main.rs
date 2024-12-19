@@ -2,10 +2,10 @@ use clap::Parser;
 use loader::load;
 use std::{fs, path::PathBuf};
 
+mod debugger;
 mod instruction;
 mod loader;
 mod registers;
-mod tui;
 mod vm;
 
 #[allow(non_camel_case_types)]
@@ -21,15 +21,15 @@ struct Args {
 
     /// Sets a custom config file
     #[arg(short, long)]
-    tui: bool,
+    debug: bool,
 }
 
 fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
     let bytes = fs::read(args.file)?;
     let program = load(&bytes);
-    if args.tui {
-        tui::start()?;
+    if args.debug {
+        debugger::run(&program)?;
     } else {
         vm::run(&program);
     }
