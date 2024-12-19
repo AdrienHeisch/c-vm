@@ -5,7 +5,7 @@ pub const RAM_LEN: usize = 128;
 pub fn run(program: &[Instruction]) {
     let mut vm = VM::new();
     while let Some(instruction) = program.get(vm.regs.pc as usize) {
-        vm.push_stdout(format!("{:04} : ", vm.regs.pc));
+        vm.push_stdout(format!("{:04X} : ", vm.regs.pc));
 
         if let Some(exit_code) = vm.execute(*instruction) {
             println!("Program exited with code : {exit_code}");
@@ -32,6 +32,10 @@ impl VM {
             stdout: String::new(),
             stderr: String::new(),
         }
+    }
+
+    pub fn pc(&self) -> uvm {
+        self.regs.pc
     }
 
     fn push_stdout(&mut self, string: String) {
@@ -63,7 +67,7 @@ impl VM {
     pub fn show_ram(&self) -> Vec<String> {
         self.ram
             .iter()
-            .map(|byte| format!("{:02x}", byte))
+            .map(|byte| format!("{:02X}", byte))
             .collect::<Vec<_>>()
     }
 

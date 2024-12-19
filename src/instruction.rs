@@ -1,6 +1,5 @@
+use crate::{registers::Registers, uvm, REG_LEN};
 use std::fmt::Debug;
-
-use crate::{registers::Registers, uvm};
 
 #[derive(Clone, Copy)]
 pub struct Instruction {
@@ -10,16 +9,14 @@ pub struct Instruction {
     pub val: uvm,
 }
 
-const LEN: usize = 4;
-
 impl Debug for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self { rfl, opc, reg, val } = self;
         let reg = Registers::register_name(*reg as uvm);
         let val = if *rfl {
-            format!("{:<LEN$}", Registers::register_name(*val as uvm))
+            format!("{:<REG_LEN$}", Registers::register_name(*val as uvm))
         } else {
-            format!("{val:0>LEN$X}")
+            format!("{val:0>REG_LEN$X}")
         };
 
         match opc {
