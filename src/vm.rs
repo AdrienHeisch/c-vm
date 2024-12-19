@@ -2,6 +2,21 @@ use crate::{instruction::Instruction, registers::Registers, uvm, REG_LEN};
 
 pub const RAM_LEN: usize = 128;
 
+pub fn run(program: &[Instruction]) {
+    let mut vm = VM::new();
+    while let Some(instruction) = program.get(vm.regs.pc as usize) {
+        vm.push_stdout(format!("{:04} : ", vm.regs.pc));
+
+        if let Some(exit_code) = vm.execute(*instruction) {
+            println!("Program exited with code : {exit_code}");
+            break;
+        }
+
+        eprint!("{}", vm.stderr());
+        print!("{}", vm.stdout());
+    }
+}
+
 pub struct VM {
     regs: Registers,
     ram: [u8; RAM_LEN],
@@ -9,7 +24,6 @@ pub struct VM {
     stderr: String,
 }
 
-#[allow(dead_code)]
 impl VM {
     pub fn new() -> Self {
         Self {
@@ -44,73 +58,55 @@ impl VM {
         std::mem::swap(&mut self.stderr, &mut str);
         self.stderr.clear();
         str
-        String::from_utf8(bytes).unwrap()
     }
 
-    pub fn show_ram(&self) -> String {
+    pub fn show_ram(&self) -> Vec<String> {
         self.ram
             .iter()
             .map(|byte| format!("{:02x}", byte))
-            .collect::<Vec<String>>()
-            .join(" ")
+            .collect::<Vec<_>>()
     }
-}
 
-pub fn run(program: &[Instruction]) {
-    let mut vm = VM::new();
-    while let Some(instruction) = program.get(vm.regs.pc as usize) {
-        vm.push_stdout(format!("{:04} : ", vm.regs.pc));
-
-        if let Some(exit_code) = execute(&mut vm, *instruction) {
-            println!("Program exited with code : {exit_code}");
-            break;
+    pub fn execute(&mut self, instruction: Instruction) -> Option<uvm> {
+        let Instruction { rfl, opc, reg, val } = instruction;
+        let pc = self.regs.pc;
+        let reg = reg as uvm;
+    
+        self.push_stdout(format!("{instruction:?}"));
+    
+        if opc == 0x01 {
+            self.push_stdout("\n".to_string());
+            return Some(halt(self, rfl, val));
         }
-
-        eprint!("{}", vm.stderr());
-        print!("{}", vm.stdout());
+    
+        match opc {
+            0x00 => nop(),
+            0x04 => set(self, rfl, reg, val),
+            0x05 => load(self, rfl, reg, val),
+            0x06 => store(self, rfl, reg, val),
+            0x0C => add(self, rfl, reg, val),
+            0x0D => sub(self, rfl, reg, val),
+            0x0E => mul(self, rfl, reg, val),
+            0x0F => div(self, rfl, reg, val),
+            0x10 => modl(self, rfl, reg, val),
+            0x1D => push(self, rfl, val),
+            0x1F => pop(self, reg),
+            0x20 => drop(self),
+            0x21 => call(self, rfl, val),
+            0x22 => ret(self, rfl, val),
+            0x23 => jmp(self, rfl, val),
+            0x24 => jeq(self, rfl, reg, val),
+            0x25 => jne(self, rfl, reg, val),
+            _ => panic!("Unexpected opcode 0x{opc:02X}"),
+        }
+    
+        if self.regs.pc == pc {
+            self.regs.pc = pc + 1;
+        }
+    
+        self.push_stdout("\n".to_string());
+        None
     }
-}
-
-pub fn execute(vm: &mut VM, instruction: Instruction) -> Option<uvm> {
-    let Instruction { rfl, opc, reg, val } = instruction;
-
-    let pc = vm.regs.pc;
-    let reg = reg as uvm;
-
-    vm.push_stdout(format!("{instruction:?}"));
-
-    if opc == 0x01 {
-        vm.push_stdout("\n".to_string());
-        return Some(halt(vm, rfl, val));
-    }
-
-    match opc {
-        0x00 => nop(),
-        0x04 => set(vm, rfl, reg, val),
-        0x05 => load(vm, rfl, reg, val),
-        0x06 => store(vm, rfl, reg, val),
-        0x0C => add(vm, rfl, reg, val),
-        0x0D => sub(vm, rfl, reg, val),
-        0x0E => mul(vm, rfl, reg, val),
-        0x0F => div(vm, rfl, reg, val),
-        0x10 => modl(vm, rfl, reg, val),
-        0x1D => push(vm, rfl, val),
-        0x1F => pop(vm, reg),
-        0x20 => drop(vm),
-        0x21 => call(vm, rfl, val),
-        0x22 => ret(vm, rfl, val),
-        0x23 => jmp(vm, rfl, val),
-        0x24 => jeq(vm, rfl, reg, val),
-        0x25 => jne(vm, rfl, reg, val),
-        _ => panic!("Unexpected opcode 0x{opc:02X}"),
-    }
-
-    if vm.regs.pc == pc {
-        vm.regs.pc = pc + 1;
-    }
-
-    vm.push_stdout("\n".to_string());
-    None
 }
 
 fn nop() {}
