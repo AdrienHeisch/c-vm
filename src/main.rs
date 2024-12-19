@@ -6,6 +6,7 @@ mod instruction;
 mod interpreter;
 mod loader;
 mod registers;
+mod tui;
 
 #[allow(non_camel_case_types)]
 type uvm = u64;
@@ -14,14 +15,23 @@ const REG_LEN: usize = uvm::BITS as usize / 8;
 
 #[derive(Parser)]
 struct Args {
-    /// Sets a custom config file
+    /// Sets a custom target file
     #[arg(short, long, value_name = "FILE")]
     file: PathBuf,
+    
+    /// Sets a custom config file
+    #[arg(short, long)]
+    tui: bool,
 }
 
-fn main() {
+fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
-    let bytes = fs::read(args.file).unwrap();
+    let bytes = fs::read(args.file)?;
     let program = load(&bytes);
-    interpreter::interpret(&program);
+    if args.tui {
+        tui::start()?;
+    } else {
+        interpreter::interpret(&program);
+    }
+    Ok(())
 }
