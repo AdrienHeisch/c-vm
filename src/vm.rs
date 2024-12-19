@@ -2,7 +2,7 @@ use crate::{instruction::Instruction, registers::Registers, uvm, REG_LEN};
 
 const RAM_LEN: usize = 128;
 
-struct VM {
+pub struct VM {
     regs: Registers,
     ram: [u8; RAM_LEN],
     stdout: Vec<u8>,
@@ -57,29 +57,23 @@ impl VM {
 
 pub fn run(program: &[Instruction]) {
     let mut vm = VM::new();
-    loop {
-        let pc = vm.regs.pc;
-        if let Some(instruction) = program.get(pc as usize) {
-            vm.stdout(format!("{:04} : ", pc));
-            if let Some(exit_code) = execute(&mut vm, *instruction) {
-                println!("Program exited with code : {exit_code}");
-                break;
-            }
-            if vm.regs.pc == pc {
-                vm.regs.pc = pc + 1;
-            }
+    while let Some(instruction) = program.get(vm.regs.pc as usize) {
+        vm.stdout(format!("{:04} : ", vm.regs.pc));
 
-            eprint!("{}", vm.take_stderr());
-            print!("{}", vm.take_stdout());
-        } else {
+        if let Some(exit_code) = execute(&mut vm, *instruction) {
+            println!("Program exited with code : {exit_code}");
             break;
         }
+
+        eprint!("{}", vm.take_stderr());
+        print!("{}", vm.take_stdout());
     }
 }
 
-fn execute(vm: &mut VM, instruction: Instruction) -> Option<uvm> {
+pub fn execute(vm: &mut VM, instruction: Instruction) -> Option<uvm> {
     let Instruction { rfl, opc, reg, val } = instruction;
 
+    let pc = vm.regs.pc;
     let reg = reg as uvm;
 
     vm.stderr(format!("{instruction:?}"));
@@ -108,6 +102,10 @@ fn execute(vm: &mut VM, instruction: Instruction) -> Option<uvm> {
         0x24 => jeq(vm, rfl, reg, val),
         0x25 => jne(vm, rfl, reg, val),
         _ => panic!("Unexpected opcode 0x{opc:02X}"),
+    }
+
+    if vm.regs.pc == pc {
+        vm.regs.pc = pc + 1;
     }
 
     vm.stdout("\n".to_string());
