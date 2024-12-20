@@ -23,7 +23,8 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
     let mut next_instruction = None;
     let mut display_pc = 0;
     let mut auto = false;
-    
+    let mut history = Vec::new();
+
     if let Some(instruction) = program.get(vm.pc() as usize) {
         next_instruction = Some(*instruction);
         display_pc = vm.pc() as usize;
@@ -33,9 +34,10 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
         draw(
             &mut terminal,
             next_instruction.is_some(),
-            program,
             &vm,
+            program,
             display_pc,
+            Text::from(history.clone()),
         )?;
 
         if event::poll(Duration::from_millis(10))? {
@@ -83,15 +85,24 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
                 display_pc = vm.pc() as usize;
             }
         }
+
+        vm.stdout()
+            .lines()
+            .for_each(|l| history.push(Line::raw(l.to_owned())));
+
+        vm.stderr()
+            .lines()
+            .for_each(|l| history.push(Line::raw(l.to_owned()).black().on_dark_gray()));
     }
 }
 
 fn draw(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     mode: bool,
-    program: &[Instruction],
     vm: &VM,
+    program: &[Instruction],
     pc: usize,
+    history: Text,
 ) -> Result<(), io::Error> {
     terminal.draw(|frame| {
         let layout = Layout::default()
@@ -100,6 +111,7 @@ fn draw(
                 Constraint::Percentage(0),
                 Constraint::Length(32),
                 Constraint::Length(62),
+                Constraint::Fill(1),
                 Constraint::Fill(0),
             ])
             .split(frame.area());
@@ -108,7 +120,7 @@ fn draw(
         let program_jmp = program.get(pc).unwrap().target_addr();
         let program_display =
             Paragraph::new(format_program(vm, &program_str, mode, pc, program_jmp))
-                .white()
+                // .white()
                 .block(Block::new().title("Program").borders(Borders::ALL));
         frame.render_widget(program_display, layout[1]);
 
@@ -120,16 +132,18 @@ fn draw(
         let regs = vm.show_regs();
         let target_regs = program.get(pc).unwrap().target_regs();
         let regs_display = Paragraph::new(format_regs(&regs, target_regs))
-            .white()
             .block(Block::new().title("Registers").borders(Borders::ALL));
         frame.render_widget(regs_display, mem_layout[0]);
 
         let ram = vm.show_ram();
         let target_ram = program.get(pc).unwrap().target_ram();
         let ram_display = Paragraph::new(format_ram(vm, &ram, target_ram))
-            .white()
-            .block(Block::new().borders(Borders::ALL));
+            .block(Block::new().title("RAM").borders(Borders::ALL));
         frame.render_widget(ram_display, mem_layout[1]);
+
+        let stdout_display =
+            Paragraph::new(history).block(Block::new().title("Output").borders(Borders::ALL));
+        frame.render_widget(stdout_display, layout[3]);
     })?;
 
     Ok(())
@@ -150,8 +164,8 @@ fn format_program<'a>(
 
     lines.push(Line::from(vec![
         Span::raw(" "),
-        Span::styled("     LOAD     ", if mode { primary } else { secondary }),
-        Span::styled("     EXEC     ", if mode { secondary } else { primary }),
+        Span::styled("     LOAD     ", if mode { secondary } else { primary }),
+        Span::styled("     EXEC     ", if mode { primary } else { secondary }),
         Span::raw(" "),
     ]));
 
@@ -159,7 +173,7 @@ fn format_program<'a>(
 
     let iter = program.iter().enumerate().skip(pc.saturating_sub(10));
     for (idx, str) in iter {
-        let address = Span::styled(format!("\n {:08X}  ", idx), Style::default());
+        let address = Span::raw(format!("\n {:08X}  ", idx));
         match jmp {
             _ if idx == pc => {
                 spans.push(address);
@@ -246,7 +260,7 @@ fn format_ram<'a>(vm: &VM, ram: &'a [String], targets: Vec<(bool, u64, bool)>) -
         };
 
         if idx % 16 == 0 {
-            spans.push(Span::styled(format!("\n {:08X}   ", idx), Style::default()));
+            spans.push(Span::raw(format!("\n {:08X}   ", idx)));
         } else {
             spans.push(Span::styled(" ", style));
         }
