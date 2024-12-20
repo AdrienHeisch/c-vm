@@ -23,6 +23,7 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
     let mut next_instruction = None;
     let mut display_pc = 0;
     let mut auto = false;
+    let mut done = false;
     let mut history = Vec::new();
 
     if let Some(instruction) = program.get(vm.pc() as usize) {
@@ -40,12 +41,13 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
             &history,
         )?;
 
-        if event::poll(Duration::from_millis(10))? {
+        if event::poll(Duration::from_millis(1))? {
             while let event::Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
                         KeyCode::Char('q') => return Ok(()),
                         KeyCode::Char('r') => {
+                            done = false;
                             vm = VM::new();
                             history = Vec::new();
                             if let Some(instruction) = program.get(vm.pc() as usize) {
@@ -56,10 +58,15 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
                         KeyCode::Enter => auto = !auto,
                         KeyCode::Char(' ') => {
                             auto = false;
+                            if done {
+                                continue;
+                            }
                             if let Some(instruction) = next_instruction {
                                 if let Some(exit_code) = vm.execute(instruction) {
-                                    println!("Program exited with code : {exit_code}");
-                                    return Ok(());
+                                    history.push(Line::raw(format!(
+                                        "Program exited with code : {exit_code}"
+                                    )));
+                                    done = true;
                                 }
                                 next_instruction = None;
                             } else if let Some(instruction) = program.get(vm.pc() as usize) {
@@ -79,9 +86,12 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
             }
         }
 
-        if auto {
+        if auto && !done {
             if let Some(instruction) = program.get(vm.pc() as usize) {
-                vm.execute(*instruction);
+                if let Some(exit_code) = vm.execute(*instruction) {
+                    history.push(Line::raw(format!("Program exited with code : {exit_code}")));
+                    done = true;
+                }
                 next_instruction = Some(*instruction);
                 display_pc = vm.pc() as usize;
             }
@@ -107,6 +117,14 @@ fn draw(
 ) -> Result<(), io::Error> {
     terminal.draw(|frame| {
         let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![Constraint::Fill(1), Constraint::Length(1)])
+            .split(frame.area());
+        
+        let controls = Paragraph::new(" Quit [q]   Reset [r]   Step [SPACE]   Run/Stop [ENTER]");
+        frame.render_widget(controls, layout[1]);
+
+        let hlayout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![
                 Constraint::Percentage(0),
@@ -115,7 +133,7 @@ fn draw(
                 Constraint::Fill(1),
                 Constraint::Fill(0),
             ])
-            .split(frame.area());
+            .split(layout[0]);
 
         let program_str = program.iter().map(|i| format!("{i:?}")).collect::<Vec<_>>();
         let program_jmp = program.get(pc).unwrap().target_addr();
@@ -123,12 +141,12 @@ fn draw(
             Paragraph::new(format_program(vm, &program_str, mode, pc, program_jmp))
                 // .white()
                 .block(Block::new().title("Program").borders(Borders::ALL));
-        frame.render_widget(program_display, layout[1]);
+        frame.render_widget(program_display, hlayout[1]);
 
         let mem_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![Constraint::Length(6), Constraint::Fill(1)])
-            .split(layout[2]);
+            .split(hlayout[2]);
 
         let regs = vm.show_regs();
         let target_regs = program.get(pc).unwrap().target_regs();
@@ -142,7 +160,7 @@ fn draw(
             .block(Block::new().title("RAM").borders(Borders::ALL));
         frame.render_widget(ram_display, mem_layout[1]);
 
-        let history_height = layout[3].height;
+        let history_height = hlayout[3].height;
         let history_display = Paragraph::new(Text::from(
             history
                 .iter()
@@ -151,7 +169,7 @@ fn draw(
                 .collect::<Vec<_>>(),
         ))
         .block(Block::new().title("Output").borders(Borders::ALL));
-        frame.render_widget(history_display, layout[3]);
+        frame.render_widget(history_display, hlayout[3]);
     })?;
 
     Ok(())
@@ -167,17 +185,19 @@ fn format_program<'a>(
     let mut lines = Vec::new();
     let mut spans = Vec::new();
 
+    let load = Style::default().white().on_red();
+    let exec = Style::default().white().on_green();
     let off = Style::default().black().on_dark_gray();
-    
+
     lines.push(Line::from(vec![
         Span::raw(" "),
-        Span::styled("     LOAD     ", if mode { off } else { Style::default().white().on_red() }),
-        Span::styled("     EXEC     ", if mode { Style::default().white().on_green() } else { off }),
+        Span::styled("     LOAD     ", if mode { off } else { load }),
+        Span::styled("     EXEC     ", if mode { exec } else { off }),
         Span::raw(" "),
-        ]));
-        
-        lines.push(Line::raw(""));
-        
+    ]));
+
+    lines.push(Line::raw(""));
+
     let primary = Style::default().black().on_white();
     let secondary = Style::default().black().on_dark_gray();
     let iter = program.iter().enumerate().skip(pc.saturating_sub(10));
