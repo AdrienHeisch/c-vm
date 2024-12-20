@@ -2,7 +2,9 @@ use clap::Parser;
 use loader::load;
 use std::{fs, path::PathBuf};
 
+#[cfg(feature = "debugger")]
 mod debugger;
+
 mod instruction;
 mod loader;
 mod macros;
@@ -29,10 +31,15 @@ fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
     let bytes = fs::read(args.file)?;
     let program = load(&bytes);
+
     if args.debug {
+        #[cfg(feature = "debugger")]
         debugger::run(&program)?;
+        #[cfg(not(feature = "debugger"))]
+        println!("Debugger not included in this build");
     } else {
         vm::run(&program);
     }
+
     Ok(())
 }

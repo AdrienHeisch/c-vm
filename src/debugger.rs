@@ -41,7 +41,7 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
             &history,
         )?;
 
-        if event::poll(Duration::from_millis(1))? {
+        if event::poll(Duration::from_millis(33))? {
             while let event::Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
@@ -120,7 +120,7 @@ fn draw(
             .direction(Direction::Vertical)
             .constraints(vec![Constraint::Fill(1), Constraint::Length(1)])
             .split(frame.area());
-        
+
         let controls = Paragraph::new(" Quit [q]   Reset [r]   Step [SPACE]   Run/Stop [ENTER]");
         frame.render_widget(controls, layout[1]);
 
