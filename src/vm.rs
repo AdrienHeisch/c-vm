@@ -1,6 +1,6 @@
-use crate::{instruction::Instruction, registers::Registers, uvm, REG_LEN};
+use crate::{instruction::Instruction, opc, registers::Registers, uvm, REG_LEN};
 
-pub const RAM_LEN: usize = 128;
+pub const RAM_LEN: usize = 512;
 
 pub fn run(program: &[Instruction]) {
     let mut vm = VM::new();
@@ -38,6 +38,10 @@ impl VM {
         self.regs.pc
     }
 
+    pub fn get_reg(&self, idx: uvm) -> uvm {
+        self.regs.get(idx)
+    }
+
     fn push_stdout(&mut self, string: String) {
         for char in string.chars() {
             self.stdout.push(char);
@@ -64,50 +68,54 @@ impl VM {
         str
     }
 
+    pub fn show_regs(&self) -> Vec<String> {
+        self.regs.show()
+    }
+
     pub fn show_ram(&self) -> Vec<String> {
         self.ram
             .iter()
             .map(|byte| format!("{:02X}", byte))
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     pub fn execute(&mut self, instruction: Instruction) -> Option<uvm> {
         let Instruction { rfl, opc, reg, val } = instruction;
         let pc = self.regs.pc;
         let reg = reg as uvm;
-    
+
         self.push_stderr(format!("{instruction:?}"));
-    
-        if opc == 0x01 {
+
+        if opc == opc!(HALT) {
             self.push_stderr("\n".to_string());
             return Some(halt(self, rfl, val));
         }
-    
+
         match opc {
-            0x00 => nop(),
-            0x04 => set(self, rfl, reg, val),
-            0x05 => load(self, rfl, reg, val),
-            0x06 => store(self, rfl, reg, val),
-            0x0C => add(self, rfl, reg, val),
-            0x0D => sub(self, rfl, reg, val),
-            0x0E => mul(self, rfl, reg, val),
-            0x0F => div(self, rfl, reg, val),
-            0x10 => modl(self, rfl, reg, val),
-            0x1D => push(self, rfl, val),
-            0x1F => pop(self, reg),
-            0x20 => drop(self),
-            0x21 => call(self, rfl, val),
-            0x22 => ret(self, rfl, val),
-            0x23 => jmp(self, rfl, val),
-            0x24 => jeq(self, rfl, reg, val),
-            0x25 => jne(self, rfl, reg, val),
+            opc!(NOP) => nop(),
+            opc!(SET) => set(self, rfl, reg, val),
+            opc!(LOAD) => load(self, rfl, reg, val),
+            opc!(STORE) => store(self, rfl, reg, val),
+            opc!(ADD) => add(self, rfl, reg, val),
+            opc!(SUB) => sub(self, rfl, reg, val),
+            opc!(MUL) => mul(self, rfl, reg, val),
+            opc!(DIV) => div(self, rfl, reg, val),
+            opc!(MOD) => modl(self, rfl, reg, val),
+            opc!(PUSH) => push(self, rfl, val),
+            opc!(POP) => pop(self, reg),
+            opc!(DROP) => drop(self),
+            opc!(CALL) => call(self, rfl, val),
+            opc!(RET) => ret(self, rfl, val),
+            opc!(JMP) => jmp(self, rfl, val),
+            opc!(JEQ) => jeq(self, rfl, reg, val),
+            opc!(JNE) => jne(self, rfl, reg, val),
             _ => panic!("Unexpected opcode 0x{opc:02X}"),
         }
-    
+
         if self.regs.pc == pc {
             self.regs.pc = pc + 1;
         }
-    
+
         self.push_stderr("\n".to_string());
         None
     }
@@ -217,11 +225,8 @@ fn call(vm: &mut VM, rfl: bool, val: uvm) {
 fn ret(vm: &mut VM, rfl: bool, val: uvm) {
     let value = if rfl { vm.regs.get(val) } else { val };
     vm.regs.rr = value;
-    if vm.regs.lr == 2 {
-        panic!("LR: {}", vm.regs.lr);
-    }
-    jmp(vm, false, vm.regs.lr);
-    vm.push_stderr(format!(" => JMP {}", vm.regs.lr));
+    vm.regs.pc = vm.regs.lr;
+    vm.push_stderr(format!(" => RR = {value}, JMP {}", vm.regs.lr));
 }
 
 fn jmp(vm: &mut VM, rfl: bool, val: uvm) {

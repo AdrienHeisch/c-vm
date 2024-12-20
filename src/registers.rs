@@ -63,6 +63,12 @@ impl Registers {
         }
     }
 
+    pub fn show(&self) -> Vec<String> {
+        (0..15)
+            .map(|i| format!("{} {:08X}", Self::register_name(i), self.get(i)))
+            .collect::<Vec<_>>()
+    }
+
     pub fn register_name(reg_idx: uvm) -> String {
         match reg_idx {
             0 => "PC",
@@ -84,50 +90,4 @@ impl Registers {
         }
         .to_string()
     }
-}
-
-#[macro_export]
-macro_rules! reg_index {
-    (pc) => {
-        0
-    };
-    (sp) => {
-        1
-    };
-    (bp) => {
-        2
-    };
-    (rr) => {
-        3
-    };
-    (sr) => {
-        4
-    };
-    (fr) => {
-        5
-    };
-    (r0) => {
-        6
-    };
-    (r1) => {
-        7
-    };
-    (r2) => {
-        8
-    };
-    (r3) => {
-        9
-    };
-    (r4) => {
-        10
-    };
-    (r5) => {
-        11
-    };
-    (r6) => {
-        12
-    };
-    (r7) => {
-        13
-    };
 }

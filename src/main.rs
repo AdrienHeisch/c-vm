@@ -5,6 +5,7 @@ use std::{fs, path::PathBuf};
 mod debugger;
 mod instruction;
 mod loader;
+mod macros;
 mod registers;
 mod vm;
 
