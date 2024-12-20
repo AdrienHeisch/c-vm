@@ -37,7 +37,7 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
             &vm,
             program,
             display_pc,
-            Text::from(history.clone()),
+            &history,
         )?;
 
         if event::poll(Duration::from_millis(10))? {
@@ -47,6 +47,7 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
                         KeyCode::Char('q') => return Ok(()),
                         KeyCode::Char('r') => {
                             vm = VM::new();
+                            history = Vec::new();
                             if let Some(instruction) = program.get(vm.pc() as usize) {
                                 next_instruction = Some(*instruction);
                                 display_pc = vm.pc() as usize;
@@ -81,7 +82,7 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
         if auto {
             if let Some(instruction) = program.get(vm.pc() as usize) {
                 vm.execute(*instruction);
-                next_instruction = None;
+                next_instruction = Some(*instruction);
                 display_pc = vm.pc() as usize;
             }
         }
@@ -92,7 +93,7 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
 
         vm.stderr()
             .lines()
-            .for_each(|l| history.push(Line::raw(l.to_owned()).black().on_dark_gray()));
+            .for_each(|l| history.push(Line::raw(format!("!!!>   {}", l))));
     }
 }
 
@@ -102,7 +103,7 @@ fn draw(
     vm: &VM,
     program: &[Instruction],
     pc: usize,
-    history: Text,
+    history: &[Line],
 ) -> Result<(), io::Error> {
     terminal.draw(|frame| {
         let layout = Layout::default()
@@ -141,9 +142,16 @@ fn draw(
             .block(Block::new().title("RAM").borders(Borders::ALL));
         frame.render_widget(ram_display, mem_layout[1]);
 
-        let stdout_display =
-            Paragraph::new(history).block(Block::new().title("Output").borders(Borders::ALL));
-        frame.render_widget(stdout_display, layout[3]);
+        let history_height = layout[3].height;
+        let history_display = Paragraph::new(Text::from(
+            history
+                .iter()
+                .map(Clone::clone)
+                .skip(history.len().saturating_sub(history_height as usize - 2))
+                .collect::<Vec<_>>(),
+        ))
+        .block(Block::new().title("Output").borders(Borders::ALL));
+        frame.render_widget(history_display, layout[3]);
     })?;
 
     Ok(())
@@ -159,18 +167,19 @@ fn format_program<'a>(
     let mut lines = Vec::new();
     let mut spans = Vec::new();
 
-    let primary = Style::default().black().on_white();
-    let secondary = Style::default().black().on_dark_gray();
-
+    let off = Style::default().black().on_dark_gray();
+    
     lines.push(Line::from(vec![
         Span::raw(" "),
-        Span::styled("     LOAD     ", if mode { secondary } else { primary }),
-        Span::styled("     EXEC     ", if mode { primary } else { secondary }),
+        Span::styled("     LOAD     ", if mode { off } else { Style::default().white().on_red() }),
+        Span::styled("     EXEC     ", if mode { Style::default().white().on_green() } else { off }),
         Span::raw(" "),
-    ]));
-
-    lines.push(Line::raw(""));
-
+        ]));
+        
+        lines.push(Line::raw(""));
+        
+    let primary = Style::default().black().on_white();
+    let secondary = Style::default().black().on_dark_gray();
     let iter = program.iter().enumerate().skip(pc.saturating_sub(10));
     for (idx, str) in iter {
         let address = Span::raw(format!("\n {:08X}  ", idx));
