@@ -135,6 +135,22 @@ impl Instruction {
             _ => vec![],
         }
     }
+
+    pub fn target_addr(&self) -> Option<(bool, uvm)> {
+        match self.opc {
+            #[allow(clippy::manual_range_patterns)]
+            opc!(CALL)
+            | opc!(RET)
+            | opc!(JMP)
+            | opc!(JEQ)
+            | opc!(JNE)
+            | opc!(JGT)
+            | opc!(JGE)
+            | opc!(JLT)
+            | opc!(JLE) => Some((self.rfl, self.val)),
+            _ => None
+        }
+    }
 }
 
 impl Debug for Instruction {
