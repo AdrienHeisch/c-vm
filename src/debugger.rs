@@ -102,7 +102,7 @@ fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
 
         vm.stderr()
             .lines()
-            .for_each(|l| history.push(Line::raw(format!("!!!>   {l}")).yellow()));
+            .for_each(|l| history.push(Line::raw(l.to_owned()).yellow()));
 
         if let Some(instruction) = next_instruction {
             last_instruction = instruction;
@@ -188,7 +188,7 @@ fn draw(
                 .skip(history.len().saturating_sub(history_height as usize - 2))
                 .collect::<Vec<_>>(),
         ))
-        .block(Block::new().title("Output").borders(Borders::ALL));
+        .block(Block::new().title("stdout").title("stderr".yellow()).borders(Borders::ALL));
         frame.render_widget(history_display, hlayout[3]);
     })?;
 
