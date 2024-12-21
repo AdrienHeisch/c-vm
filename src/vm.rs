@@ -1,16 +1,17 @@
-use crate::{instruction::Instruction, opc, registers::Registers, uvm, REG_LEN};
+use crate::{instruction::Instruction, loader, opc, registers::Registers, uvm, REG_LEN};
 
 pub const RAM_LEN: usize = 512;
 
 const REOM: &str = "READ OUT OF MEMORY";
 const WEOM: &str = "WRITE OUT OF MEMORY";
 
-pub fn run(program: &[Instruction]) {
+pub fn run(program: &[u8]) {
     let mut vm = VM::new();
-    while let Some(instruction) = program.get(vm.regs.pc as usize) {
+    vm.load(program);
+    while let Some(instruction) = vm.decode() {
         vm.push_stderr(&format!("{:04X} : ", vm.regs.pc));
 
-        if let Some(exit_code) = vm.execute(*instruction) {
+        if let Some(exit_code) = vm.execute(instruction) {
             println!("Program exited with code : {exit_code}");
             break;
         }
@@ -35,6 +36,14 @@ impl VM {
             stdout: String::new(),
             stderr: String::new(),
         }
+    }
+
+    pub fn load(&mut self, program: &[u8]) {
+        for (idx, byte) in program.iter().enumerate() {
+            *self.ram.get_mut(idx).expect(WEOM) = *byte;
+        }
+        self.regs.sp = program.len() as uvm;
+        self.regs.bp = program.len() as uvm;
     }
 
     pub fn pc(&self) -> uvm {
@@ -79,6 +88,20 @@ impl VM {
         self.ram.iter().map(|byte| format!("{byte:02X}")).collect()
     }
 
+    pub fn show_program(&self) -> Vec<(Instruction, usize)> {
+        let mut program = Vec::new();
+        let mut addr = 0;
+        while let Some(instruction) = loader::decode(&self.ram, addr) {
+            program.push((instruction, addr));
+            addr += instruction.len();
+        }
+        program
+    }
+
+    pub fn decode(&self) -> Option<Instruction> {
+        loader::decode(&self.ram, self.regs.pc as usize)
+    }
+
     pub fn execute(&mut self, instruction: Instruction) -> Option<uvm> {
         let Instruction { rfl, opc, reg, val } = instruction;
         let pc = self.regs.pc;
@@ -109,11 +132,12 @@ impl VM {
             opc!(JMP) => jmp(self, rfl, val),
             opc!(JEQ) => jeq(self, rfl, reg, val),
             opc!(JNE) => jne(self, rfl, reg, val),
+            opc!(PRINT) => stdout(self, rfl, val),
             _ => panic!("Unexpected opcode 0x{opc:02X}"),
         }
 
         if self.regs.pc == pc {
-            self.regs.pc = pc + 1;
+            self.regs.pc = pc + instruction.len() as uvm;
         }
 
         self.push_stderr("\n");
@@ -231,7 +255,7 @@ fn drop(vm: &mut VM) {
 }
 
 fn call(vm: &mut VM, rfl: bool, val: uvm) {
-    vm.regs.lr = vm.regs.pc + 1;
+    vm.regs.lr = vm.regs.pc + if rfl { 3 } else { 10 };
     jmp(vm, rfl, val);
 }
 
@@ -264,4 +288,15 @@ fn jeq(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
 
 fn jne(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
     jcond(vm, rfl, reg, val, uvm::ne);
+}
+
+fn stdout(vm: &mut VM, rfl: bool, val: uvm) {
+    let value = if rfl { vm.regs.get(val) } else { val };
+    let chars = value.to_le_bytes();
+    // println!("{rfl}, {val}");
+    // println!("{chars:02X?}");
+    let str = String::from_utf8(chars.to_vec()).expect("Invalid string !");
+    vm.push_stdout(&str);
+
+    vm.push_stderr(&format!(" => \"{str}\""));
 }

@@ -11,6 +11,10 @@ pub struct Instruction {
 
 #[allow(clippy::too_many_lines)]
 impl Instruction {
+    pub fn len(&self) -> usize {
+        if self.rfl { 3 } else { 10 }
+    }
+
     pub fn target_regs(&self) -> (Vec<usize>, Vec<usize>) {
         let Self { rfl, opc, reg, val } = self;
         let (reg, val) = (*reg as usize, *val as usize);
@@ -184,6 +188,7 @@ impl Debug for Instruction {
             opc!(JMP) => write!(f, "JMP       {val}"),
             opc!(JEQ) => write!(f, "JEQ    {reg} {val}"),
             opc!(JNE) => write!(f, "JNE    {reg} {val}"),
+            opc!(PRINT) => write!(f, "PRINT     {val}"),
             _ => panic!("Unexpected opcode 0x{opc:02X}"),
         }?;
         Ok(())

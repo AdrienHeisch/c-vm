@@ -1,4 +1,4 @@
-use crate::{instruction::Instruction, uvm, vm::VM, REG_LEN};
+use crate::{instruction::Instruction, loader, uvm, vm::VM, REG_LEN};
 use ratatui::{
     crossterm::event::{self, KeyCode, KeyEventKind},
     layout::{Constraint, Direction, Layout},
@@ -10,7 +10,7 @@ use ratatui::{
 };
 use std::{io, time::Duration};
 
-pub fn run(program: &[Instruction]) -> io::Result<()> {
+pub fn run(program: &[u8]) -> io::Result<()> {
     let mut terminal = ratatui::init();
     terminal.clear()?;
     let app_result = start(terminal, program);
@@ -18,25 +18,26 @@ pub fn run(program: &[Instruction]) -> io::Result<()> {
     app_result
 }
 
-fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<()> {
+fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
     let mut vm = VM::new();
+    vm.load(program);
+    let display_program = vm.show_program();
     let mut next_instruction = None;
+    let mut last_instruction = loader::decode(program, 0).expect("Invalid program start");
     let mut display_pc = 0;
     let mut auto = false;
     let mut done = false;
     let mut history = Vec::new();
 
-    if let Some(instruction) = program.get(vm.pc() as usize) {
-        next_instruction = Some(*instruction);
-        display_pc = vm.pc() as usize;
-    }
+    load_next(&vm, &mut next_instruction, &mut display_pc);
 
     loop {
         draw(
             &mut terminal,
             next_instruction.is_some(),
             &vm,
-            program,
+            &display_program,
+            last_instruction,
             display_pc,
             &history,
         )?;
@@ -49,11 +50,9 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
                         KeyCode::Char('r') => {
                             done = false;
                             vm = VM::new();
+                            vm.load(program);
                             history = Vec::new();
-                            if let Some(instruction) = program.get(vm.pc() as usize) {
-                                next_instruction = Some(*instruction);
-                                display_pc = vm.pc() as usize;
-                            }
+                            load_next(&vm, &mut next_instruction, &mut display_pc);
                         }
                         KeyCode::Enter => auto = !auto,
                         KeyCode::Char(' ') => {
@@ -69,11 +68,8 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
                                     done = true;
                                 }
                                 next_instruction = None;
-                            } else if let Some(instruction) = program.get(vm.pc() as usize) {
-                                next_instruction = Some(*instruction);
-                                display_pc = vm.pc() as usize;
                             } else {
-                                return Ok(());
+                                load_next(&vm, &mut next_instruction, &mut display_pc);
                             }
                         }
                         _ => continue,
@@ -87,13 +83,12 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
         }
 
         if auto && !done {
-            if let Some(instruction) = program.get(vm.pc() as usize) {
-                if let Some(exit_code) = vm.execute(*instruction) {
+            load_next(&vm, &mut next_instruction, &mut display_pc);
+            if let Some(instruction) = next_instruction {
+                if let Some(exit_code) = vm.execute(instruction) {
                     history.push(Line::raw(format!("Program exited with code : {exit_code}")));
                     done = true;
                 }
-                next_instruction = Some(*instruction);
-                display_pc = vm.pc() as usize;
             }
         }
 
@@ -103,7 +98,18 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
 
         vm.stderr()
             .lines()
-            .for_each(|l| history.push(Line::raw(format!("!!!>   {l}"))));
+            .for_each(|l| history.push(Line::raw(format!("!!!>   {l}")).yellow()));
+
+        if let Some(instruction) = next_instruction {
+            last_instruction = instruction;
+        }
+    }
+}
+
+fn load_next(vm: &VM, next_instruction: &mut Option<Instruction>, display_pc: &mut usize) {
+    if let Some(instruction) = vm.decode() {
+        *next_instruction = Some(instruction);
+        *display_pc = vm.pc() as usize;
     }
 }
 
@@ -112,11 +118,11 @@ fn draw(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     mode: bool,
     vm: &VM,
-    program: &[Instruction],
-    pc: usize,
+    program: &[(Instruction, usize)],
+    instruction: Instruction,
+    display_pc: usize,
     history: &[Line],
 ) -> Result<(), io::Error> {
-    let instruction = program.get(pc).expect("PC out of bounds");
     terminal.draw(|frame| {
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -137,12 +143,20 @@ fn draw(
             ])
             .split(layout[0]);
 
-        let program_str = program.iter().map(|i| format!("{i:?}")).collect::<Vec<_>>();
+        let program_str = program
+            .iter()
+            .map(|(instr, addr)| (format!("{instr:?}"), *addr))
+            .collect::<Vec<_>>();
         let program_jmp = instruction.target_addr();
-        let program_display =
-            Paragraph::new(format_program(vm, &program_str, mode, pc, program_jmp))
-                // .white()
-                .block(Block::new().title("Program").borders(Borders::ALL));
+        let program_display = Paragraph::new(format_program(
+            vm,
+            &program_str,
+            mode,
+            display_pc,
+            program_jmp,
+        ))
+        // .white()
+        .block(Block::new().title("Program").borders(Borders::ALL));
         frame.render_widget(program_display, hlayout[1]);
 
         let mem_layout = Layout::default()
@@ -179,9 +193,9 @@ fn draw(
 
 fn format_program<'a>(
     vm: &VM,
-    program: &'a [String],
+    program: &'a [(String, usize)],
     mode: bool,
-    pc: usize,
+    display_pc: usize,
     jmp: Option<(bool, uvm)>,
 ) -> Text<'a> {
     let mut lines = Vec::new();
@@ -202,15 +216,14 @@ fn format_program<'a>(
 
     let primary = Style::default().black().on_white();
     let secondary = Style::default().black().on_dark_gray();
-    let iter = program.iter().enumerate().skip(pc.saturating_sub(10));
-    for (idx, str) in iter {
-        let address = Span::raw(format!("\n {idx:08X}  "));
+    for (str, addr) in program {
+        let address = Span::raw(format!("\n {addr:08X}  "));
         match jmp {
-            _ if idx == pc => {
+            _ if *addr == display_pc => {
                 spans.push(address);
                 spans.push(Span::styled(str, primary));
             }
-            Some((rfl, val)) if idx == if rfl { vm.get_reg(val) } else { val } as usize => {
+            Some((rfl, val)) if *addr == if rfl { vm.get_reg(val) } else { val } as usize => {
                 spans.push(address);
                 spans.push(Span::styled(str, secondary));
             }

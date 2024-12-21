@@ -1,13 +1,12 @@
 use crate::{instruction::Instruction, uvm, REG_LEN};
 use std::slice::Iter;
 
-pub fn load(bytes: &[u8]) -> Vec<Instruction> {
-    let mut bytes = bytes.iter();
-    let mut program = Vec::new();
-    while let Some(instruction) = collect_instruction(&mut bytes) {
-        program.push(instruction);
+pub fn decode(bytes: &[u8], address: usize) -> Option<Instruction> {
+    let mut bytes = bytes.get(address..).expect("Read out of memory").iter();
+    if let Some(instruction) = collect_instruction(&mut bytes) {
+        return Some(instruction);
     }
-    program
+    None
 }
 
 fn collect_instruction(bytes: &mut Iter<u8>) -> Option<Instruction> {

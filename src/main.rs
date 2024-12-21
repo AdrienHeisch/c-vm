@@ -7,7 +7,6 @@
 #![allow(clippy::cast_possible_truncation, clippy::unreadable_literal)]
 
 use clap::Parser;
-use loader::load;
 use std::{fs, path::PathBuf};
 
 #[cfg(feature = "debugger")]
@@ -37,8 +36,7 @@ struct Args {
 
 fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
-    let bytes = fs::read(args.file)?;
-    let program = load(&bytes);
+    let program = fs::read(args.file)?;
 
     if args.debug {
         #[cfg(feature = "debugger")]
