@@ -187,7 +187,11 @@ fn push(vm: &mut VM, rfl: bool, val: uvm) {
     let value = if rfl { vm.regs.get(val) } else { val };
     let bytes = uvm::to_le_bytes(value);
     let sp = vm.regs.sp;
-    vm.ram[sp as usize..sp as usize + REG_LEN].copy_from_slice(&bytes[0..REG_LEN]);
+    if let Some(mem) = vm.ram.get_mut(sp as usize..sp as usize + REG_LEN) {
+        mem.copy_from_slice(&bytes[0..REG_LEN]);
+    } else {
+        panic!("############### OUT OF MEMORY ###############");
+    }
     vm.regs.sp = sp + REG_LEN as uvm;
     vm.push_stderr(format!(" => @0x{sp:X} = {value}"));
 }
