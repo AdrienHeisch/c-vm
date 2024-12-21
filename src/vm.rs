@@ -30,9 +30,11 @@ pub struct VM {
 
 impl VM {
     pub fn new() -> Self {
+        let mut ram = [0u8; RAM_LEN];
+        ram.iter_mut().for_each(|b| *b = rand::random());
         Self {
             regs: Registers::default(),
-            ram: [0; RAM_LEN],
+            ram,
             stdout: String::new(),
             stderr: String::new(),
         }
