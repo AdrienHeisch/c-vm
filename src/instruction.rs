@@ -12,7 +12,11 @@ pub struct Instruction {
 #[allow(clippy::too_many_lines)]
 impl Instruction {
     pub fn len(&self) -> usize {
-        if self.rfl { 3 } else { 10 }
+        if self.rfl {
+            3
+        } else {
+            10
+        }
     }
 
     pub fn target_regs(&self) -> (Vec<usize>, Vec<usize>) {
@@ -180,8 +184,8 @@ impl Debug for Instruction {
             opc!(DIV) => write!(f, "DIV    {reg} {val}"),
             opc!(MOD) => write!(f, "MOD    {reg} {val}"),
             opc!(PUSH) => write!(f, "PUSH      {val}"),
-            opc!(POP) => write!(f, "POP    {reg}     "),
-            opc!(DROP) => write!(f, "DROP          "),
+            opc!(POP) => write!(f, "POP    {reg}         "),
+            opc!(DROP) => write!(f, "DROP              "),
             opc!(CALL) => write!(f, "CALL      {val}"),
             opc!(RET) => write!(f, "RET       {val}"),
             opc!(JMP) => write!(f, "JMP       {val}"),
