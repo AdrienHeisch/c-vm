@@ -183,6 +183,7 @@ impl Debug for Instruction {
             opc!(MUL) => write!(f, "MUL    {reg} {val}"),
             opc!(DIV) => write!(f, "DIV    {reg} {val}"),
             opc!(MOD) => write!(f, "MOD    {reg} {val}"),
+            opc!(AND) => write!(f, "AND    {reg} {val}"),
             opc!(PUSH) => write!(f, "PUSH      {val}"),
             opc!(POP) => write!(f, "POP    {reg}         "),
             opc!(DROP) => write!(f, "DROP              "),

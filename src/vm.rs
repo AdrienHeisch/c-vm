@@ -1,6 +1,6 @@
 use crate::{instruction::Instruction, loader, opc, registers::Registers, uvm, REG_LEN};
 
-pub const RAM_LEN: usize = 512;
+pub const RAM_LEN: usize = 1024;
 
 const REOM: &str = "READ OUT OF MEMORY";
 const WEOM: &str = "WRITE OUT OF MEMORY";
@@ -128,6 +128,7 @@ impl VM {
             opc!(MUL) => mul(self, rfl, reg, val),
             opc!(DIV) => div(self, rfl, reg, val),
             opc!(MOD) => modl(self, rfl, reg, val),
+            opc!(AND) => and(self, rfl, reg, val),
             opc!(PUSH) => push(self, rfl, val),
             opc!(POP) => pop(self, reg),
             opc!(DROP) => drop(self),
@@ -218,6 +219,10 @@ fn div(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
 
 fn modl(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
     binop(vm, rfl, reg, val, |a, b| a % b);
+}
+
+fn and(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) {
+    binop(vm, rfl, reg, val, |a, b| a & b);
 }
 
 fn push(vm: &mut VM, rfl: bool, val: uvm) {
