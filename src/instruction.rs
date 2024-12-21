@@ -9,14 +9,13 @@ pub struct Instruction {
     pub val: uvm,
 }
 
+#[allow(clippy::too_many_lines)]
 impl Instruction {
     pub fn target_regs(&self) -> (Vec<usize>, Vec<usize>) {
         let Self { rfl, opc, reg, val } = self;
         let (reg, val) = (*reg as usize, *val as usize);
         let (mut dst, mut src) = (Vec::new(), Vec::new());
-        if *opc > 0x2C {
-            panic!("Unexpected opcode 0x{opc:02X}")
-        }
+        assert!(*opc <= 0x2C, "Unexpected opcode 0x{opc:02X}");
         match opc {
             opc!(CLEAR)
             | opc!(SET)
@@ -97,7 +96,7 @@ impl Instruction {
             | opc!(EPRINT)
                 if *rfl =>
             {
-                src.push(val)
+                src.push(val);
             }
             _ => {}
         }
@@ -127,11 +126,14 @@ impl Instruction {
     pub fn target_ram(&self) -> Vec<(bool, uvm, bool)> {
         match self.opc {
             opc!(LOAD) => vec![(self.rfl, self.val, false)],
-            opc!(STORE) => vec![(true, self.reg as uvm, true)],
+            opc!(STORE) => vec![(true, self.reg.into(), true)],
             opc!(PUSH) => vec![(true, reg_index!(sp), true)],
             opc!(DUP) => vec![(self.rfl, self.val, false), (true, reg_index!(sp), true)],
-            opc!(POP) => vec![(true, uvm::saturating_sub(reg_index!(sp), REG_LEN as uvm), true)],
-            opc!(DROP) => vec![(true, uvm::saturating_sub(reg_index!(sp), REG_LEN as uvm), true)],
+            opc!(POP) | opc!(DROP) => vec![(
+                true,
+                uvm::saturating_sub(reg_index!(sp), REG_LEN as uvm),
+                true,
+            )],
             _ => vec![],
         }
     }
@@ -148,7 +150,7 @@ impl Instruction {
             | opc!(JGE)
             | opc!(JLT)
             | opc!(JLE) => Some((self.rfl, self.val)),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -156,7 +158,7 @@ impl Instruction {
 impl Debug for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self { rfl, opc, reg, val } = self;
-        let reg = Registers::register_name(*reg as uvm);
+        let reg = Registers::register_name((*reg).into());
         let val = if *rfl {
             format!("{:<REG_LEN$}", Registers::register_name(*val as uvm))
         } else {
@@ -166,22 +168,22 @@ impl Debug for Instruction {
         match opc {
             opc!(NOP) => write!(f, "NOP           "),
             opc!(HALT) => write!(f, "HALT      {val}"),
-            opc!(SET) => write!(f, "SET    {} {val}", reg),
-            opc!(LOAD) => write!(f, "LOAD   {} {val}", reg),
-            opc!(STORE) => write!(f, "STORE  {} {val}", reg),
-            opc!(ADD) => write!(f, "ADD    {} {val}", reg),
-            opc!(SUB) => write!(f, "SUB    {} {val}", reg),
-            opc!(MUL) => write!(f, "MUL    {} {val}", reg),
-            opc!(DIV) => write!(f, "DIV    {} {val}", reg),
-            opc!(MOD) => write!(f, "MOD    {} {val}", reg),
+            opc!(SET) => write!(f, "SET    {reg} {val}"),
+            opc!(LOAD) => write!(f, "LOAD   {reg} {val}"),
+            opc!(STORE) => write!(f, "STORE  {reg} {val}"),
+            opc!(ADD) => write!(f, "ADD    {reg} {val}"),
+            opc!(SUB) => write!(f, "SUB    {reg} {val}"),
+            opc!(MUL) => write!(f, "MUL    {reg} {val}"),
+            opc!(DIV) => write!(f, "DIV    {reg} {val}"),
+            opc!(MOD) => write!(f, "MOD    {reg} {val}"),
             opc!(PUSH) => write!(f, "PUSH      {val}"),
-            opc!(POP) => write!(f, "POP    {}     ", reg),
+            opc!(POP) => write!(f, "POP    {reg}     "),
             opc!(DROP) => write!(f, "DROP          "),
             opc!(CALL) => write!(f, "CALL      {val}"),
             opc!(RET) => write!(f, "RET       {val}"),
             opc!(JMP) => write!(f, "JMP       {val}"),
-            opc!(JEQ) => write!(f, "JEQ    {} {val}", reg),
-            opc!(JNE) => write!(f, "JNE    {} {val}", reg),
+            opc!(JEQ) => write!(f, "JEQ    {reg} {val}"),
+            opc!(JNE) => write!(f, "JNE    {reg} {val}"),
             _ => panic!("Unexpected opcode 0x{opc:02X}"),
         }?;
         Ok(())

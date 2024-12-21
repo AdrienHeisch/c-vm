@@ -23,27 +23,15 @@ fn collect_instruction(bytes: &mut Iter<u8>) -> Option<Instruction> {
         return None;
     };
 
-    let val = if let Some(byte) = bytes.next() {
-        if rfl {
-            *byte as uvm
-        } else {
-            // TODO extract function copy from register
-            let mut val = Vec::with_capacity(REG_LEN);
-            val.push(*byte);
-            for _ in 1..REG_LEN {
-                if let Some(byte) = bytes.next() {
-                    val.push(*byte);
-                } else {
-                    return None;
-                };
-            }
-            while val.len() < REG_LEN {
-                val.push(0);
-            }
-            uvm::from_le_bytes(val.try_into().unwrap())
-        }
+    let val = if rfl {
+        (*bytes.next()?).into()
     } else {
-        return None;
+        // TODO extract function copy from register
+        let mut val = [0; REG_LEN];
+        for b in &mut val {
+            *b = *bytes.next()?;
+        }
+        uvm::from_le_bytes(val)
     };
 
     let instruction = Instruction { rfl, opc, reg, val };

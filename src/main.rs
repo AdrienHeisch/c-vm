@@ -1,3 +1,11 @@
+#![warn(
+    clippy::pedantic,
+    clippy::unwrap_used,
+    clippy::missing_panics_doc,
+    clippy::indexing_slicing
+)]
+#![allow(clippy::cast_possible_truncation, clippy::unreadable_literal)]
+
 use clap::Parser;
 use loader::load;
 use std::{fs, path::PathBuf};

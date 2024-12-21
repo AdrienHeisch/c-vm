@@ -103,10 +103,11 @@ fn start(mut terminal: DefaultTerminal, program: &[Instruction]) -> io::Result<(
 
         vm.stderr()
             .lines()
-            .for_each(|l| history.push(Line::raw(format!("!!!>   {}", l))));
+            .for_each(|l| history.push(Line::raw(format!("!!!>   {l}"))));
     }
 }
 
+#[allow(clippy::indexing_slicing)]
 fn draw(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     mode: bool,
@@ -115,6 +116,7 @@ fn draw(
     pc: usize,
     history: &[Line],
 ) -> Result<(), io::Error> {
+    let instruction = program.get(pc).expect("PC out of bounds");
     terminal.draw(|frame| {
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -136,7 +138,7 @@ fn draw(
             .split(layout[0]);
 
         let program_str = program.iter().map(|i| format!("{i:?}")).collect::<Vec<_>>();
-        let program_jmp = program.get(pc).unwrap().target_addr();
+        let program_jmp = instruction.target_addr();
         let program_display =
             Paragraph::new(format_program(vm, &program_str, mode, pc, program_jmp))
                 // .white()
@@ -149,14 +151,14 @@ fn draw(
             .split(hlayout[2]);
 
         let regs = vm.show_regs();
-        let target_regs = program.get(pc).unwrap().target_regs();
+        let target_regs = instruction.target_regs();
         let regs_display = Paragraph::new(format_regs(&regs, target_regs))
             .block(Block::new().title("Registers").borders(Borders::ALL));
         frame.render_widget(regs_display, mem_layout[0]);
 
         let ram = vm.show_ram();
-        let target_ram = program.get(pc).unwrap().target_ram();
-        let ram_display = Paragraph::new(format_ram(vm, &ram, target_ram))
+        let target_ram = instruction.target_ram();
+        let ram_display = Paragraph::new(format_ram(vm, &ram, &target_ram))
             .block(Block::new().title("RAM").borders(Borders::ALL));
         frame.render_widget(ram_display, mem_layout[1]);
 
@@ -202,7 +204,7 @@ fn format_program<'a>(
     let secondary = Style::default().black().on_dark_gray();
     let iter = program.iter().enumerate().skip(pc.saturating_sub(10));
     for (idx, str) in iter {
-        let address = Span::raw(format!("\n {:08X}  ", idx));
+        let address = Span::raw(format!("\n {idx:08X}  "));
         match jmp {
             _ if idx == pc => {
                 spans.push(address);
@@ -264,13 +266,13 @@ fn format_regs(regs: &[String], (dst, src): (Vec<usize>, Vec<usize>)) -> Text {
 }
 
 // FIXME on stack operations, SP should visually stay at the original location
-fn format_ram<'a>(vm: &VM, ram: &'a [String], targets: Vec<(bool, u64, bool)>) -> Text<'a> {
+fn format_ram<'a>(vm: &VM, ram: &'a [String], targets: &[(bool, uvm, bool)]) -> Text<'a> {
     let mut lines = Vec::new();
 
     lines.push(Line::raw(format!(
         "            {}",
         (0..16)
-            .map(|i| format!("{:02X}", i))
+            .map(|i| format!("{i:02X}"))
             .collect::<Vec<_>>()
             .join(" ")
     )));
@@ -289,7 +291,7 @@ fn format_ram<'a>(vm: &VM, ram: &'a [String], targets: Vec<(bool, u64, bool)>) -
         };
 
         if idx % 16 == 0 {
-            spans.push(Span::raw(format!("\n {:08X}   ", idx)));
+            spans.push(Span::raw(format!("\n {idx:08X}   ")));
         } else {
             spans.push(Span::styled(" ", style));
         }
