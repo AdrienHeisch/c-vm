@@ -19,7 +19,6 @@ impl Instruction {
         let Self { rfl, opc, reg, val } = self;
         let (reg, val) = (*reg as usize, *val as usize);
         let (mut dst, mut src) = (Vec::new(), Vec::new());
-        assert!(*opc <= 0x2C, "Unexpected opcode 0x{opc:02X}");
         match opc {
             opc!(CLEAR)
             | opc!(SET)
