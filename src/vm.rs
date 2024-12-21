@@ -40,12 +40,14 @@ impl VM {
         }
     }
 
-    pub fn load(&mut self, program: &[u8]) {
+    pub fn load(&mut self, program: &[u8]) -> uvm {
         for (idx, byte) in program.iter().enumerate() {
             *self.ram.get_mut(idx).expect(WEOM) = *byte;
         }
-        self.regs.sp = program.len() as uvm;
-        self.regs.bp = program.len() as uvm;
+        let end = program.len() as uvm;
+        self.regs.sp = end;
+        self.regs.bp = end;
+        end
     }
 
     pub fn pc(&self) -> uvm {

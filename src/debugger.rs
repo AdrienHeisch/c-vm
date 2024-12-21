@@ -20,14 +20,18 @@ pub fn run(program: &[u8]) -> io::Result<()> {
 
 fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
     let mut vm = VM::new();
-    vm.load(program);
-    let display_program = vm.show_program();
+    let program_end = vm.load(program) as usize;
     let mut next_instruction = None;
     let mut last_instruction = loader::decode(program, 0).expect("Invalid program start");
     let mut display_pc = 0;
     let mut auto = false;
     let mut done = false;
     let mut history = Vec::new();
+    let display_program = vm
+        .show_program()
+        .into_iter()
+        .take_while(|(_, n)| *n < program_end)
+        .collect::<Vec<_>>();
 
     load_next(&vm, &mut next_instruction, &mut display_pc);
 
