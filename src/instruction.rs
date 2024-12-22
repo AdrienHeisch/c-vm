@@ -135,7 +135,7 @@ impl Instruction {
             opc!(LOAD) => vec![(self.rfl, self.val, false)],
             opc!(STORE) => vec![(true, self.reg.into(), true)],
             opc!(PUSH) => vec![(true, reg_index!(sp), true)],
-            opc!(DUP) => vec![(self.rfl, self.val, false), (true, reg_index!(sp), true)],
+            opc!(DUP) => vec![(true, reg_index!(sp), true), (self.rfl, self.val, false)],
             opc!(POP) | opc!(DROP) => vec![(
                 true,
                 uvm::saturating_sub(reg_index!(sp), REG_LEN as uvm),

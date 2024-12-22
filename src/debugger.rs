@@ -10,6 +10,13 @@ use ratatui::{
 };
 use std::{io, time::Duration};
 
+#[derive(Default)]
+struct DisplayState {
+    pc: usize,
+    ram_offset: usize,
+    program_offset: usize,
+}
+
 pub fn run(program: &[u8]) -> io::Result<()> {
     let mut terminal = ratatui::init();
     terminal.clear()?;
@@ -23,7 +30,7 @@ fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
     let program_end = vm.load(program) as usize;
     let mut next_instruction = None;
     let mut last_instruction = loader::decode(program, 0).expect("Invalid program start");
-    let mut display_pc = 0;
+    let mut display_state = DisplayState::default();
     let mut auto = false;
     let mut done = false;
     let mut history = Vec::new();
@@ -33,7 +40,7 @@ fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
         .take_while(|(_, n)| *n < program_end)
         .collect::<Vec<_>>();
 
-    load_next(&vm, &mut next_instruction, &mut display_pc);
+    load_next(&vm, &mut next_instruction, &mut display_state);
 
     loop {
         draw(
@@ -42,7 +49,7 @@ fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
             &vm,
             &display_program,
             last_instruction,
-            display_pc,
+            &mut display_state,
             &history,
         )?;
 
@@ -56,7 +63,7 @@ fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
                             vm = VM::new();
                             vm.load(program);
                             history = Vec::new();
-                            load_next(&vm, &mut next_instruction, &mut display_pc);
+                            load_next(&vm, &mut next_instruction, &mut display_state);
                         }
                         KeyCode::Enter => auto = !auto,
                         KeyCode::Char(' ') => {
@@ -73,7 +80,7 @@ fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
                                 }
                                 next_instruction = None;
                             } else {
-                                load_next(&vm, &mut next_instruction, &mut display_pc);
+                                load_next(&vm, &mut next_instruction, &mut display_state);
                             }
                         }
                         _ => continue,
@@ -87,7 +94,7 @@ fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
         }
 
         if auto && !done {
-            load_next(&vm, &mut next_instruction, &mut display_pc);
+            load_next(&vm, &mut next_instruction, &mut display_state);
             if let Some(instruction) = next_instruction {
                 if let Some(exit_code) = vm.execute(instruction) {
                     history.push(Line::raw(format!("Program exited with code : {exit_code}")));
@@ -110,10 +117,14 @@ fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
     }
 }
 
-fn load_next(vm: &VM, next_instruction: &mut Option<Instruction>, display_pc: &mut usize) {
+fn load_next(
+    vm: &VM,
+    next_instruction: &mut Option<Instruction>,
+    display_state: &mut DisplayState,
+) {
     if let Some(instruction) = vm.decode() {
         *next_instruction = Some(instruction);
-        *display_pc = vm.pc() as usize;
+        display_state.pc = vm.pc() as usize;
     }
 }
 
@@ -124,7 +135,7 @@ fn draw(
     vm: &VM,
     program: &[(Instruction, usize)],
     instruction: Instruction,
-    display_pc: usize,
+    display_state: &mut DisplayState,
     history: &[Line],
 ) -> Result<(), io::Error> {
     terminal.draw(|frame| {
@@ -156,10 +167,10 @@ fn draw(
             vm,
             &program_str,
             mode,
-            display_pc,
+            hlayout[1].height,
+            display_state,
             program_jmp,
         ))
-        // .white()
         .block(Block::new().title("Program").borders(Borders::ALL));
         frame.render_widget(program_display, hlayout[1]);
 
@@ -176,8 +187,14 @@ fn draw(
 
         let ram = vm.show_ram();
         let target_ram = instruction.target_ram();
-        let ram_display = Paragraph::new(format_ram(vm, &ram, &target_ram))
-            .block(Block::new().title("RAM").borders(Borders::ALL));
+        let ram_display = Paragraph::new(format_ram(
+            vm,
+            &ram,
+            &target_ram,
+            mem_layout[1].height,
+            display_state,
+        ))
+        .block(Block::new().title("RAM").borders(Borders::ALL));
         frame.render_widget(ram_display, mem_layout[1]);
 
         let history_height = hlayout[3].height;
@@ -188,7 +205,12 @@ fn draw(
                 .skip(history.len().saturating_sub(history_height as usize - 2))
                 .collect::<Vec<_>>(),
         ))
-        .block(Block::new().title("stdout").title("stderr".yellow()).borders(Borders::ALL));
+        .block(
+            Block::new()
+                .title("stdout")
+                .title("stderr".yellow())
+                .borders(Borders::ALL),
+        );
         frame.render_widget(history_display, hlayout[3]);
     })?;
 
@@ -199,9 +221,22 @@ fn format_program<'a>(
     vm: &VM,
     program: &'a [(String, usize)],
     mode: bool,
-    display_pc: usize,
+    height: u16,
+    display_state: &mut DisplayState,
     jmp: Option<(bool, uvm)>,
 ) -> Text<'a> {
+    let height: usize = (height - 4).into();
+    if let Some(idx) = program
+        .iter()
+        .enumerate()
+        .find(|(_, (_, addr))| *addr == display_state.pc)
+        .map(|x| x.0)
+    {
+        display_state.program_offset = idx
+            .saturating_sub((height - 1) / 2)
+            .min(program.len() - height);
+    }
+
     let mut lines = Vec::new();
     let mut spans = Vec::new();
 
@@ -220,10 +255,10 @@ fn format_program<'a>(
 
     let primary = Style::default().black().on_white();
     let secondary = Style::default().black().on_dark_gray();
-    for (str, addr) in program {
+    for (str, addr) in program.iter().skip(display_state.program_offset) {
         let address = Span::raw(format!("\n {addr:08X}  "));
         match jmp {
-            _ if *addr == display_pc => {
+            _ if *addr == display_state.pc => {
                 spans.push(address);
                 spans.push(Span::styled(str, primary));
             }
@@ -283,7 +318,21 @@ fn format_regs(regs: &[String], (dst, src): (Vec<usize>, Vec<usize>)) -> Text {
 }
 
 // FIXME on stack operations, SP should visually stay at the original location
-fn format_ram<'a>(vm: &VM, ram: &'a [String], targets: &[(bool, uvm, bool)]) -> Text<'a> {
+fn format_ram<'a>(
+    vm: &VM,
+    ram: &'a [String],
+    targets: &[(bool, uvm, bool)],
+    height: u16,
+    display_state: &mut DisplayState,
+) -> Text<'a> {
+    let height: usize = (height - 3).into();
+    if let Some((rfl, val, _)) = targets.first() {
+        let target = if *rfl { vm.get_reg(*val) } else { *val } as usize;
+        let mut offset = target.saturating_sub((height * 16) / 2);
+        offset = offset.saturating_sub(offset % 16);
+        display_state.ram_offset = offset;
+    }
+
     let mut lines = Vec::new();
 
     lines.push(Line::raw(format!(
@@ -299,7 +348,7 @@ fn format_ram<'a>(vm: &VM, ram: &'a [String], targets: &[(bool, uvm, bool)]) -> 
     let mut keep_highlighting = 0;
     let mut spans = Vec::new();
     let mut current_style = Style::default();
-    for (idx, str) in ram.iter().enumerate() {
+    for (idx, str) in ram.iter().enumerate().skip(display_state.ram_offset) {
         let mut style = if keep_highlighting > 0 {
             keep_highlighting -= 1;
             current_style
