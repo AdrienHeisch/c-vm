@@ -72,12 +72,7 @@ fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
                                 continue;
                             }
                             if let Some(instruction) = next_instruction {
-                                if let Some(exit_code) = vm.execute(instruction) {
-                                    history.push(Line::raw(format!(
-                                        "Program exited with code : {exit_code}"
-                                    )));
-                                    done = true;
-                                }
+                                execute(&mut vm, instruction, &mut done, &mut auto, &mut history);
                                 next_instruction = None;
                             } else {
                                 load_next(&vm, &mut next_instruction, &mut display_state);
@@ -96,10 +91,7 @@ fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
         if auto && !done {
             load_next(&vm, &mut next_instruction, &mut display_state);
             if let Some(instruction) = next_instruction {
-                if let Some(exit_code) = vm.execute(instruction) {
-                    history.push(Line::raw(format!("Program exited with code : {exit_code}")));
-                    done = true;
-                }
+                execute(&mut vm, instruction, &mut done, &mut auto, &mut history);
             }
         }
 
@@ -113,6 +105,26 @@ fn start(mut terminal: DefaultTerminal, program: &[u8]) -> io::Result<()> {
 
         if let Some(instruction) = next_instruction {
             last_instruction = instruction;
+        }
+    }
+}
+
+fn execute(
+    vm: &mut VM,
+    instruction: Instruction,
+    done: &mut bool,
+    auto: &mut bool,
+    history: &mut Vec<Line<'_>>,
+) {
+    match vm.execute(instruction) {
+        Ok(Some(exit_code)) => {
+            history.push(Line::raw(format!("Program exited with code : {exit_code}")));
+            *done = true;
+        }
+        Ok(None) => (),
+        Err(err) => {
+            history.push(Line::raw(err).red());
+            *auto = false;
         }
     }
 }
@@ -179,11 +191,21 @@ fn draw(
             .constraints(vec![Constraint::Length(6), Constraint::Fill(1)])
             .split(hlayout[2]);
 
-        let regs = vm.show_regs();
-        let target_regs = instruction.target_regs();
-        let regs_display = Paragraph::new(format_regs(&regs, target_regs))
-            .block(Block::new().title("Registers").borders(Borders::ALL));
-        frame.render_widget(regs_display, mem_layout[0]);
+        match vm.show_regs() {
+            Ok(regs) => {
+                let target_regs = instruction.target_regs();
+                frame.render_widget(
+                    Paragraph::new(format_regs(&regs, target_regs))
+                        .block(Block::new().title("Registers").borders(Borders::ALL)),
+                    mem_layout[0],
+                );
+            }
+            Err(err) => frame.render_widget(
+                Paragraph::new(format!("CORRUPTED: {err}").red())
+                    .block(Block::new().title("Registers").borders(Borders::ALL)),
+                mem_layout[0],
+            ),
+        }
 
         let ram = vm.show_ram();
         let target_ram = instruction.target_ram();
@@ -234,7 +256,7 @@ fn format_program<'a>(
     {
         display_state.program_offset = idx
             .saturating_sub((height - 1) / 2)
-            .min(program.len() - height);
+            .min(program.len().saturating_sub(height));
     }
 
     let mut lines = Vec::new();
@@ -262,7 +284,11 @@ fn format_program<'a>(
                 spans.push(address);
                 spans.push(Span::styled(str, primary));
             }
-            Some((rfl, val)) if *addr == if rfl { vm.get_reg(val) } else { val } as usize => {
+            Some((rfl, val)) if rfl && vm.get_reg(val).is_err() => {
+                spans.push(address);
+                spans.push(Span::raw(str));
+            }
+            Some((rfl, val)) if *addr == if rfl { vm.get_reg(val).unwrap() } else { val } as usize => {
                 spans.push(address);
                 spans.push(Span::styled(str, secondary));
             }
@@ -327,10 +353,12 @@ fn format_ram<'a>(
 ) -> Text<'a> {
     let height: usize = (height - 3).into();
     if let Some((rfl, val, _)) = targets.first() {
-        let target = if *rfl { vm.get_reg(*val) } else { *val } as usize;
-        let mut offset = target.saturating_sub((height * 16) / 2);
-        offset = offset.saturating_sub(offset % 16);
-        display_state.ram_offset = offset;
+        if let Ok(target) = if *rfl { vm.get_reg(*val) } else { Ok(*val) } {
+            let target = target as usize;
+            let mut offset = target.saturating_sub((height * 16) / 2);
+            offset = offset.saturating_sub(offset % 16);
+            display_state.ram_offset = offset;
+        }
     }
 
     let mut lines = Vec::new();
@@ -362,10 +390,16 @@ fn format_ram<'a>(
             spans.push(Span::styled(" ", style));
         }
 
-        if let Some((_, _, write)) = targets
-            .iter()
-            .find(|(rfl, val, _)| idx == if *rfl { vm.get_reg(*val) } else { *val } as usize)
-        {
+        if let Some((_, _, write)) = targets.iter().find(|(rfl, val, _)| {
+            idx == if *rfl {
+                match vm.get_reg(*val) {
+                    Ok(a) => a,
+                    Err(_) => return false,
+                }
+            } else {
+                *val
+            } as usize
+        }) {
             if *write {
                 current_style = write_style;
             } else {

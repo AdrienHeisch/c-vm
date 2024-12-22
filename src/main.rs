@@ -1,6 +1,5 @@
 #![warn(
     clippy::pedantic,
-    clippy::unwrap_used,
     clippy::missing_panics_doc,
     clippy::indexing_slicing
 )]
@@ -19,7 +18,7 @@ mod registers;
 mod vm;
 
 #[allow(non_camel_case_types)]
-type uvm = u64;
+type uvm = u32;
 
 const REG_LEN: usize = uvm::BITS as usize / 8;
 

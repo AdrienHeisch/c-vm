@@ -21,8 +21,8 @@ pub struct Registers {
 }
 
 impl Registers {
-    pub fn get(&self, reg_idx: uvm) -> uvm {
-        match reg_idx {
+    pub fn get(&self, reg_idx: uvm) -> Result<uvm, String> {
+        Ok(match reg_idx {
             0 => self.pc,
             1 => self.sp,
             2 => self.bp,
@@ -38,11 +38,11 @@ impl Registers {
             12 => self.r5,
             13 => self.r6,
             14 => self.r7,
-            _ => panic!("Invalid register index {reg_idx}"),
-        }
+            _ => return Err(format!("Invalid read {reg_idx}")),
+        })
     }
 
-    pub fn set(&mut self, reg_idx: uvm, value: uvm) {
+    pub fn set(&mut self, reg_idx: uvm, value: uvm) -> Result<(), String> {
         match reg_idx {
             0 => self.pc = value,
             1 => self.sp = value,
@@ -59,14 +59,18 @@ impl Registers {
             12 => self.r5 = value,
             13 => self.r6 = value,
             14 => self.r7 = value,
-            _ => panic!("Invalid register index {reg_idx}"),
+            _ => return Err(format!("Invalid write on register index {reg_idx}")),
         }
+        Ok(())
     }
 
-    pub fn show(&self) -> Vec<String> {
+    pub fn show(&self) -> Result<Vec<String>, String> {
         (0..15)
-            .map(|i| format!("{} {:08X}", Self::register_name(i), self.get(i)))
-            .collect::<Vec<_>>()
+            .map(|i| {
+                self.get(i)
+                    .map(|reg| format!("{} {:08X}", Self::register_name(i), reg))
+            })
+            .collect()
     }
 
     pub fn register_name(reg_idx: uvm) -> String {
@@ -86,7 +90,7 @@ impl Registers {
             12 => "R5",
             13 => "R6",
             14 => "R7",
-            _ => panic!("Invalid register index {reg_idx}"),
+            _ => "??",
         }
         .to_string()
     }

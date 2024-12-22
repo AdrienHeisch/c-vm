@@ -2,7 +2,10 @@ use crate::{instruction::Instruction, uvm, REG_LEN};
 use std::slice::Iter;
 
 pub fn decode(bytes: &[u8], address: usize) -> Option<Instruction> {
-    let mut bytes = bytes.get(address..).expect("Read out of memory").iter();
+    let mut bytes = bytes
+        .get(address..)
+        .unwrap_or_else(|| panic!("Read out of memory at 0x{address:X}"))
+        .iter();
     if let Some(instruction) = collect_instruction(&mut bytes) {
         return Some(instruction);
     }

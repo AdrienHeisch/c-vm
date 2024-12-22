@@ -15,7 +15,7 @@ impl Instruction {
         if self.rfl {
             3
         } else {
-            10
+            2 + REG_LEN
         }
     }
 
@@ -193,7 +193,7 @@ impl Debug for Instruction {
             opc!(JEQ) => write!(f, "JEQ    {reg} {val}"),
             opc!(JNE) => write!(f, "JNE    {reg} {val}"),
             opc!(PRINT) => write!(f, "PRINT     {val}"),
-            _ => panic!("Unexpected opcode 0x{opc:02X}"),
+            _ => write!(f, "INVALID"),
         }?;
         Ok(())
     }
