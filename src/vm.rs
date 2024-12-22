@@ -307,5 +307,5 @@ fn stdout(vm: &mut VM, rfl: bool, val: uvm) {
     let str = String::from_utf8(chars.to_vec()).expect("Invalid string !");
     vm.push_stdout(&str);
 
-    vm.push_stderr(&format!(" => \"{str}\""));
+    vm.push_stderr(&format!(" => {str:?}"));
 }
