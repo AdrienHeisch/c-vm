@@ -17,7 +17,7 @@ pub fn run(program: &[u8]) {
                 break;
             }
             Ok(None) => (),
-            Err(err) => eprintln!("{err}"),
+            Err(err) => panic!("{err}"),
         }
 
         eprint!("{}", vm.stderr());
@@ -56,6 +56,10 @@ impl VM {
 
     pub fn pc(&self) -> uvm {
         self.regs.pc
+    }
+
+    pub fn sp(&self) -> uvm {
+        self.regs.sp
     }
 
     pub fn get_reg(&self, idx: uvm) -> Result<uvm, String> {
@@ -126,7 +130,10 @@ impl VM {
             opc!(NOP) => nop(),
             opc!(SET) => set(self, rfl, reg, val)?,
             opc!(LOAD) => load(self, rfl, reg, val)?,
-            opc!(STORE) => store(self, rfl, reg, val)?,
+            opc!(STOREB) => store(self, rfl, reg, val, 1)?,
+            opc!(STOREH) => store(self, rfl, reg, val, 2)?,
+            opc!(STOREW) => store(self, rfl, reg, val, 4)?,
+            opc!(STORED) => store(self, rfl, reg, val, 8)?,
             opc!(ADD) => add(self, rfl, reg, val)?,
             opc!(SUB) => sub(self, rfl, reg, val)?,
             opc!(MUL) => mul(self, rfl, reg, val)?,
@@ -142,7 +149,7 @@ impl VM {
             opc!(JEQ) => jeq(self, rfl, reg, val)?,
             opc!(JNE) => jne(self, rfl, reg, val)?,
             opc!(PRINT) => stdout(self, rfl, val)?,
-            _ => return Err("Unexpected opcode 0x{opc:02X}".to_owned()),
+            _ => return Err(format!("Unexpected opcode 0x{opc:02X}")),
         }
 
         if self.regs.pc == pc {
@@ -157,11 +164,7 @@ impl VM {
 fn nop() {}
 
 fn halt(vm: &mut VM, rfl: bool, val: uvm) -> Result<uvm, String> {
-    Ok(if rfl {
-        vm.regs.get(val)?
-    } else {
-        val
-    })
+    Ok(if rfl { vm.regs.get(val)? } else { val })
 }
 
 fn set(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) -> Result<(), String> {
@@ -187,20 +190,26 @@ fn load(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) -> Result<(), String> {
     Ok(())
 }
 
-fn store(vm: &mut VM, rfl: bool, reg: uvm, val: uvm) -> Result<(), String> {
+fn store(vm: &mut VM, rfl: bool, reg: uvm, val: uvm, n_bytes: usize) -> Result<(), String> {
     let addr = vm.regs.get(reg)? as usize;
     let value = if rfl { vm.regs.get(val)? } else { val };
     let bytes = uvm::to_le_bytes(value);
     vm.ram
-        .get_mut(addr..addr + REG_LEN)
+        .get_mut(addr..addr + n_bytes)
         .expect(WEOM)
-        .copy_from_slice(&bytes[..]);
+        .copy_from_slice(bytes.get(..n_bytes).expect("64 bit store on 32 bit system not implemented")); // TODO
 
     vm.push_stderr(&format!(" => @0x{addr:X} = {value}"));
     Ok(())
 }
 
-fn binop(vm: &mut VM, rfl: bool, reg: uvm, val: uvm, op: fn(uvm, uvm) -> uvm) -> Result<(), String> {
+fn binop(
+    vm: &mut VM,
+    rfl: bool,
+    reg: uvm,
+    val: uvm,
+    op: fn(uvm, uvm) -> uvm,
+) -> Result<(), String> {
     let val = if rfl { vm.regs.get(val)? } else { val };
     let value = op(vm.regs.get(reg)?, val);
     vm.regs.set(reg, value)?;
@@ -294,7 +303,13 @@ fn jmp(vm: &mut VM, rfl: bool, val: uvm) -> Result<(), String> {
     Ok(())
 }
 
-fn jcond(vm: &mut VM, rfl: bool, reg: uvm, val: uvm, op: fn(&uvm, &uvm) -> bool) -> Result<(), String> {
+fn jcond(
+    vm: &mut VM,
+    rfl: bool,
+    reg: uvm,
+    val: uvm,
+    op: fn(&uvm, &uvm) -> bool,
+) -> Result<(), String> {
     let cond = op(&vm.regs.get(reg)?, &0);
     if cond {
         let addr = if rfl { vm.regs.get(val)? } else { val };

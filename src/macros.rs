@@ -67,121 +67,130 @@ macro_rules! opc {
     (LOAD) => {
         0x05
     };
-    (STORE) => {
+    (STOREB) => {
         0x06
     };
-    (SWAP) => {
+    (STOREH) => {
         0x07
     };
-    (CMP) => {
+    (STOREW) => {
         0x08
     };
-    (NEG) => {
+    (STORED) => {
         0x09
     };
-    (INC) => {
+    (SWAP) => {
         0x0A
     };
-    (DEC) => {
+    (CMP) => {
         0x0B
     };
-    (ADD) => {
+    (NEG) => {
         0x0C
     };
-    (SUB) => {
+    (INC) => {
         0x0D
     };
-    (MUL) => {
+    (DEC) => {
         0x0E
     };
-    (DIV) => {
+    (ADD) => {
         0x0F
     };
-    (MOD) => {
+    (SUB) => {
         0x10
     };
-    (NOT) => {
+    (MUL) => {
         0x11
     };
-    (AND) => {
+    (DIV) => {
         0x12
     };
-    (OR) => {
+    (MOD) => {
         0x13
     };
-    (XOR) => {
+    (NOT) => {
         0x14
     };
-    (NAND) => {
+    (AND) => {
         0x15
     };
-    (NOR) => {
+    (OR) => {
         0x16
     };
-    (NXOR) => {
+    (XOR) => {
         0x17
     };
-    (SHL) => {
+    (NAND) => {
         0x18
     };
-    (SHR) => {
+    (NOR) => {
         0x19
     };
-    (RCL) => {
+    (NXOR) => {
         0x1A
     };
-    (RCR) => {
+    (SHL) => {
         0x1B
     };
-    (BSWAP) => {
+    (SHR) => {
         0x1C
     };
-    (PUSH) => {
+    (RCL) => {
         0x1D
     };
-    (DUP) => {
+    (RCR) => {
         0x1E
     };
-    (POP) => {
+    (BSWAP) => {
         0x1F
     };
-    (DROP) => {
+    (PUSH) => {
         0x20
     };
-    (CALL) => {
+    (DUP) => {
         0x21
     };
-    (RET) => {
+    (POP) => {
         0x22
     };
-    (JMP) => {
+    (DROP) => {
         0x23
     };
-    (JEQ) => {
+    (CALL) => {
         0x24
     };
-    (JNE) => {
+    (RET) => {
         0x25
     };
-    (JGT) => {
+    (JMP) => {
         0x26
     };
-    (JGE) => {
+    (JEQ) => {
         0x27
     };
-    (JLT) => {
+    (JNE) => {
         0x28
     };
-    (JLE) => {
+    (JGT) => {
         0x29
     };
-    (PRINT) => {
+    (JGE) => {
         0x2A
     };
-    (EPRINT) => {
+    (JLT) => {
         0x2B
     };
-    (DUMP) => {
+    (JLE) => {
         0x2C
+    };
+    (PRINT) => {
+        0x2D
+    };
+    (EPRINT) => {
+        0x2E
+    };
+    (DUMP) => {
+        0x2F
     };
 }

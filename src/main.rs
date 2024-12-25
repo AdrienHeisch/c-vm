@@ -18,7 +18,7 @@ mod registers;
 mod vm;
 
 #[allow(non_camel_case_types)]
-type uvm = u32;
+type uvm = u64;
 
 const REG_LEN: usize = uvm::BITS as usize / 8;
 

@@ -10,6 +10,7 @@ pub struct Instruction {
 }
 
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::manual_range_patterns)]
 impl Instruction {
     pub fn len(&self) -> usize {
         if self.rfl {
@@ -52,7 +53,10 @@ impl Instruction {
             _ => {}
         }
         match opc {
-            opc!(STORE)
+            opc!(STOREB)
+            | opc!(STOREH)
+            | opc!(STOREW)
+            | opc!(STORED)
             | opc!(CMP)
             | opc!(JEQ)
             | opc!(JNE)
@@ -71,7 +75,10 @@ impl Instruction {
             | opc!(SYCALL)
             | opc!(SET)
             | opc!(LOAD)
-            | opc!(STORE)
+            | opc!(STOREB)
+            | opc!(STOREH)
+            | opc!(STOREW)
+            | opc!(STORED)
             | opc!(CMP)
             | opc!(ADD)
             | opc!(SUB)
@@ -108,7 +115,6 @@ impl Instruction {
             _ => {}
         }
         match opc {
-            #[allow(clippy::manual_range_patterns)]
             opc!(CALL)
             | opc!(RET)
             | opc!(JMP)
@@ -133,7 +139,9 @@ impl Instruction {
     pub fn target_ram(&self) -> Vec<(bool, uvm, bool)> {
         match self.opc {
             opc!(LOAD) => vec![(self.rfl, self.val, false)],
-            opc!(STORE) => vec![(true, self.reg.into(), true)],
+            opc!(STOREB) | opc!(STOREH) | opc!(STOREW) | opc!(STORED) => {
+                vec![(true, self.reg.into(), true)]
+            }
             opc!(PUSH) => vec![(true, reg_index!(sp), true)],
             opc!(DUP) => vec![(true, reg_index!(sp), true), (self.rfl, self.val, false)],
             opc!(POP) | opc!(DROP) => vec![(
@@ -147,7 +155,6 @@ impl Instruction {
 
     pub fn target_addr(&self) -> Option<(bool, uvm)> {
         match self.opc {
-            #[allow(clippy::manual_range_patterns)]
             opc!(CALL)
             | opc!(RET)
             | opc!(JMP)
@@ -177,7 +184,10 @@ impl Debug for Instruction {
             opc!(HALT) => write!(f, "HALT      {val}"),
             opc!(SET) => write!(f, "SET    {reg} {val}"),
             opc!(LOAD) => write!(f, "LOAD   {reg} {val}"),
-            opc!(STORE) => write!(f, "STORE  {reg} {val}"),
+            opc!(STOREB) => write!(f, "STOREB  {reg} {val}"),
+            opc!(STOREH) => write!(f, "STOREH  {reg} {val}"),
+            opc!(STOREW) => write!(f, "STOREW  {reg} {val}"),
+            opc!(STORED) => write!(f, "STORED  {reg} {val}"),
             opc!(ADD) => write!(f, "ADD    {reg} {val}"),
             opc!(SUB) => write!(f, "SUB    {reg} {val}"),
             opc!(MUL) => write!(f, "MUL    {reg} {val}"),
